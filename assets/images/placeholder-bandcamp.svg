@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Bandcamp: Circle with angled stripe -->
+  <circle cx="12" cy="12" r="10" fill="none" stroke="#666666" stroke-width="1.5"/>
+  <polygon points="7,15 11,9 17,9 13,15" fill="#666666"/>
+</svg>

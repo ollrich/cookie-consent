@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Vimeo: Circle with play triangle (Vimeo = round, YouTube = rectangular) -->
+  <circle cx="12" cy="12" r="10" fill="none" stroke="#666666" stroke-width="1.5"/>
+  <polygon points="10,7.5 10,16.5 17.5,12" fill="#666666"/>
+</svg>

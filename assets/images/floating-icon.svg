@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Cookie/Settings Gear Icon for Floating Reconsider Button -->
+  <g fill="none" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="2.5"/>
+    <path d="M12 1v4M12 18v4M6 6l2.828 2.828M14.172 14.172L17 17M1 12h4M18 12h4M6 18l2.828-2.828M14.172 9.828L17 7"/>
+  </g>
+  <!-- Cookie crumb accent -->
+  <circle cx="7" cy="19" r="1.2" fill="#666666" opacity="0.6"/>
+  <circle cx="18" cy="8" r="0.8" fill="#666666" opacity="0.6"/>
+</svg>
