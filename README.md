@@ -1,6 +1,8 @@
-# SchonGeil Cookie Consent
+# Cookie Consent
 
 Ein schlankes, selbst-gehostetes WordPress-Cookie-Consent-Plugin, das Drittanbieter-Embeds vor der Zustimmung blockiert – vollständig DSGVO/GDPR/TDDDG-konform.
+
+> **Hinweis:** Dieses Plugin befindet sich in aktiver Entwicklung und kann noch Fehler enthalten. Der Einsatz auf Produktivsystemen erfolgt auf eigene Verantwortung. Gefundene Bugs bitte als [Issue](../../issues) melden.
 
 ## Features
 
@@ -39,17 +41,28 @@ Ein schlankes, selbst-gehostetes WordPress-Cookie-Consent-Plugin, das Drittanbie
 | WordPress | ≥ 6.0 | Core-Plattform |
 | PHP | ≥ 8.0 | Serversprache |
 
-### Optional (Plugin)
+### Optional (Plugins)
 
 | Plugin | Zweck | Verhalten ohne Plugin |
 |---|---|---|
 | **Polylang** | Mehrsprachigkeit (DE/EN), sprachspezifische Datenschutzseiten, Übersetzung aller UI-Strings | Fallback auf Deutsch; nur eine Datenschutzseite konfigurierbar |
+| **ARVE – Advanced Responsive Video Embedder** | Spezielle Kompatibilität für ARVE-Embeds (z. B. YouTube-Playlists, absolut positionierte iframes) | Standard-Embed-Blocking ohne ARVE-spezifische Container-Anpassungen |
 
 Das Plugin nutzt folgende Polylang-Funktionen, sofern verfügbar:
 - `pll_current_language('slug')` – aktuelle Sprache ermitteln
 - `pll__()` – Strings übersetzen
 - `pll_get_post_translations()` – verknüpfte Übersetzungen einer Seite
 - `pll_register_string()` – Strings im Polylang-Backend registrieren
+
+#### ARVE-Kompatibilität
+
+[ARVE](https://wordpress.org/plugins/advanced-responsive-video-embedder/) ist ein verbreitetes Plugin für responsives Video-Embedding. Cookie Consent enthält spezifische Anpassungen für ARVE-generierte Embeds:
+
+- Korrekte Darstellung nach Consent bei ARVE-Containern mit absoluter Positionierung
+- Korrekte Container-Höhe für absolut positionierte iframes (z. B. YouTube-Playlists im ARVE-Format)
+- Placeholder füllt den ARVE-Container vollständig aus (keine Lücke unter dem Blocker)
+
+ARVE ist **keine Pflichtabhängigkeit** – das Plugin funktioniert ohne ARVE vollständig. Die Anpassungen greifen automatisch, wenn ARVE installiert und aktiv ist.
 
 ### Optional (Cache-Plugins, automatischer Flush bei Einstellungsänderungen)
 
