@@ -17,12 +17,10 @@ class Test_Blocker extends TestCase {
 
         // Blocker-Singleton zuruecksetzen.
         $ref = new ReflectionProperty( SGCC_Blocker::class, 'instance' );
-        $ref->setAccessible( true );
         $ref->setValue( null, null );
 
         // Services-Cache zuruecksetzen.
         $ref2 = new ReflectionProperty( SGCC_Services::class, 'default_services' );
-        $ref2->setAccessible( true );
         $ref2->setValue( null, array() );
 
         $this->blocker = SGCC_Blocker::get_instance();
@@ -36,7 +34,8 @@ class Test_Blocker extends TestCase {
         $input  = '<p>Text</p><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="560" height="315"></iframe>';
         $output = $this->blocker->filter_content( $input );
 
-        $this->assertStringNotContainsString( 'src="https://www.youtube.com/embed/', $output );
+        // src= wird zu data-sgcc-src= umgeschrieben; pruefen, dass kein alleinstehender src= mehr da ist.
+        $this->assertDoesNotMatchRegularExpression( '/\ssrc="https:\/\/www\.youtube\.com\/embed\//', $output );
         $this->assertStringContainsString( 'data-sgcc-src', $output );
         $this->assertStringContainsString( 'sgcc-blocked-iframe', $output );
         $this->assertStringContainsString( 'data-sgcc-service="youtube"', $output );
@@ -152,7 +151,6 @@ class Test_Blocker extends TestCase {
     #[DataProvider('attributeProvider')]
     public function test_extract_attribute( string $html, string $attr, ?string $expected ): void {
         $method = new ReflectionMethod( SGCC_Blocker::class, 'extract_attribute' );
-        $method->setAccessible( true );
 
         $result = $method->invoke( $this->blocker, $html, $attr );
         $this->assertSame( $expected, $result );

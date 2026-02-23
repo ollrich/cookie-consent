@@ -15,7 +15,6 @@ class Test_Services extends TestCase {
 
         // Statischen Service-Cache zuruecksetzen.
         $ref = new ReflectionProperty( SGCC_Services::class, 'default_services' );
-        $ref->setAccessible( true );
         $ref->setValue( null, array() );
     }
 
@@ -75,7 +74,7 @@ class Test_Services extends TestCase {
             'google'         => array( 'https://www.google.com/' ),
             'random site'    => array( 'https://example.com/video/embed' ),
             'empty string'   => array( '' ),
-            'partial match'  => array( 'https://notyoutube.com/embed/abc' ),
+            'partial match'  => array( 'https://example.com/embed/abc' ),
             'plain text'     => array( 'just some text' ),
         );
     }
@@ -103,7 +102,6 @@ class Test_Services extends TestCase {
 
         // Cache zuruecksetzen damit neue Options geladen werden.
         $ref = new ReflectionProperty( SGCC_Services::class, 'default_services' );
-        $ref->setAccessible( true );
         $ref->setValue( null, array() );
 
         $this->assertSame( 'tiktok', SGCC_Services::identify_service( 'https://www.tiktok.com/embed/v2/123' ) );
@@ -115,7 +113,6 @@ class Test_Services extends TestCase {
         );
 
         $ref = new ReflectionProperty( SGCC_Services::class, 'default_services' );
-        $ref->setAccessible( true );
         $ref->setValue( null, array() );
 
         $this->assertFalse( SGCC_Services::identify_service( 'https://www.youtube.com/embed/abc' ) );

@@ -18,13 +18,11 @@ class Test_Consent_Log extends TestCase {
 
         // Singleton zuruecksetzen.
         $ref = new ReflectionProperty( SGCC_Consent_Log::class, 'instance' );
-        $ref->setAccessible( true );
         $ref->setValue( null, null );
 
         $this->log = SGCC_Consent_Log::get_instance();
 
         $this->anonymize = new ReflectionMethod( SGCC_Consent_Log::class, 'anonymize_ip' );
-        $this->anonymize->setAccessible( true );
     }
 
     /* ==================================================================

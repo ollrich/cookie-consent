@@ -90,7 +90,12 @@ function wp_upload_dir() {
     );
 }
 
-function wp_mkdir_p( $path ) { return true; }
+function wp_mkdir_p( $path ) {
+    if ( ! is_dir( $path ) ) {
+        @mkdir( $path, 0755, true );
+    }
+    return true;
+}
 
 // HTTP (disabled in tests).
 class WP_Error {
