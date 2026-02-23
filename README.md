@@ -123,7 +123,21 @@ npm run build   # minifiziert JS und CSS
 
 **Anforderungen für Build:** Node.js mit `terser` und `clean-css-cli` (siehe `package.json`).
 
+### Testing
+
+```bash
+composer install
+composer test   # oder: vendor/bin/phpunit
+```
+
+**Anforderungen:** PHP ≥ 8.0, Composer. Tests laufen ohne WordPress-Installation (minimale WP-Stubs im Bootstrap).
+
 ## Changelog
+
+### 1.6
+- Neu: PHPUnit-Test-Suite für kritische Regex-Patterns (Service-Erkennung, IP-Anonymisierung, Hex-Farb-Validierung, Embed-Blocking)
+- Neu: Custom Services CRUD komplett (Bearbeiten + Löschen im Admin-UI)
+- Verbesserung: Custom Services visuell in der Services-Tabelle als „custom" gekennzeichnet
 
 ### 1.5.1
 - Fix: Consent-Log schlug fehl, wenn IP-Anonymisierung auf Hash stand (SHA-256 = 64 Zeichen, Spalte nur 45)

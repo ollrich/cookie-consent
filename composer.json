@@ -1,0 +1,15 @@
+{
+    "name": "schongeil/cookie-consent",
+    "description": "Schlankes, selbst-gehostetes Cookie Consent Plugin fuer WordPress.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "phpunit/phpunit": "^10"
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "allow-plugins": {}
+    }
+}

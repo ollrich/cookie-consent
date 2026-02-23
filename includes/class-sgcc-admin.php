@@ -259,9 +259,11 @@ class SGCC_Admin {
     }
 
     private function render_services_tab() {
-        $services = SGCC_Services::get_all();
+        $services  = SGCC_Services::get_all();
         $overrides = get_option( 'sgcc_services', array() );
+        $custom_services = get_option( 'sgcc_custom_services', array() );
 
+        // Handle: Save services (enable/disable).
         if ( isset( $_POST['sgcc_save_services'] ) && check_admin_referer( 'sgcc_save_services' ) ) {
             $new_overrides = array();
             foreach ( $services as $key => $service ) {
@@ -273,6 +275,7 @@ class SGCC_Admin {
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Services updated.', 'sgcc' ) . '</p></div>';
         }
 
+        // Handle: Add custom service.
         if ( isset( $_POST['sgcc_add_custom_service'] ) && check_admin_referer( 'sgcc_add_custom_service' ) ) {
             $custom = get_option( 'sgcc_custom_services', array() );
             $slug = sanitize_key( $_POST['custom_service_slug'] ?? '' );
@@ -291,27 +294,104 @@ class SGCC_Admin {
                     ),
                 );
                 update_option( 'sgcc_custom_services', $custom );
+                $custom_services = $custom;
                 self::flush_page_caches();
                 echo '<div class="notice notice-success"><p>' . esc_html__( 'Custom service added.', 'sgcc' ) . '</p></div>';
             }
         }
 
+        // Handle: Delete custom service.
+        if ( isset( $_POST['sgcc_delete_custom_service'] ) && check_admin_referer( 'sgcc_delete_custom_service' ) ) {
+            $custom = get_option( 'sgcc_custom_services', array() );
+            $slug   = sanitize_key( $_POST['sgcc_delete_service_slug'] ?? '' );
+            if ( $slug && isset( $custom[ $slug ] ) ) {
+                unset( $custom[ $slug ] );
+                update_option( 'sgcc_custom_services', $custom );
+                $custom_services = $custom;
+                self::flush_page_caches();
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Custom service deleted.', 'sgcc' ) . '</p></div>';
+            }
+        }
+
+        // Handle: Edit custom service.
+        if ( isset( $_POST['sgcc_edit_custom_service'] ) && check_admin_referer( 'sgcc_edit_custom_service' ) ) {
+            $custom        = get_option( 'sgcc_custom_services', array() );
+            $original_slug = sanitize_key( $_POST['sgcc_edit_original_slug'] ?? '' );
+            $slug          = sanitize_key( $_POST['custom_service_slug'] ?? '' );
+            $name          = sanitize_text_field( $_POST['custom_service_name'] ?? '' );
+            $cat           = sanitize_key( $_POST['custom_service_category'] ?? 'video' );
+            $patterns_raw  = sanitize_textarea_field( $_POST['custom_service_patterns'] ?? '' );
+
+            if ( $original_slug && $slug && $name && $patterns_raw && isset( $custom[ $original_slug ] ) ) {
+                $patterns = array_filter( array_map( 'trim', explode( "\n", $patterns_raw ) ) );
+
+                // Slug geaendert → alten Eintrag entfernen.
+                if ( $original_slug !== $slug ) {
+                    unset( $custom[ $original_slug ] );
+                }
+
+                $custom[ $slug ] = array(
+                    'name' => $name, 'category' => $cat, 'enabled' => true, 'patterns' => $patterns,
+                    'icon' => 'placeholder-generic.svg',
+                    'texts' => array(
+                        'de' => array( 'title' => $name . '-Inhalt', 'allow' => $name . ' zulassen', 'privacy' => 'Beim Laden werden Daten an ' . $name . ' übermittelt.', 'load' => 'Inhalt laden', 'always' => $name . ' immer zulassen' ),
+                        'en' => array( 'title' => $name . ' content', 'allow' => 'Allow ' . $name, 'privacy' => 'Loading transmits data to ' . $name . '.', 'load' => 'Load content', 'always' => 'Always allow ' . $name ),
+                    ),
+                );
+                update_option( 'sgcc_custom_services', $custom );
+                $custom_services = $custom;
+                self::flush_page_caches();
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Custom service updated.', 'sgcc' ) . '</p></div>';
+            }
+        }
+
         $services = SGCC_Services::get_all();
+
+        // Edit-Modus pruefen.
+        $editing_slug = '';
+        if ( isset( $_GET['edit_service'] ) ) {
+            $editing_slug = sanitize_key( $_GET['edit_service'] );
+        }
         ?>
         <h2><?php esc_html_e( 'Configured Services', 'sgcc' ); ?></h2>
         <form method="post">
             <?php wp_nonce_field( 'sgcc_save_services' ); ?>
             <table class="widefat sgcc-admin__services-table">
-                <thead><tr><th><?php esc_html_e( 'Enabled', 'sgcc' ); ?></th><th><?php esc_html_e( 'Service', 'sgcc' ); ?></th><th><?php esc_html_e( 'Category', 'sgcc' ); ?></th><th><?php esc_html_e( 'URL Patterns', 'sgcc' ); ?></th></tr></thead>
+                <thead><tr>
+                    <th><?php esc_html_e( 'Enabled', 'sgcc' ); ?></th>
+                    <th><?php esc_html_e( 'Service', 'sgcc' ); ?></th>
+                    <th><?php esc_html_e( 'Category', 'sgcc' ); ?></th>
+                    <th><?php esc_html_e( 'URL Patterns', 'sgcc' ); ?></th>
+                    <th><?php esc_html_e( 'Actions', 'sgcc' ); ?></th>
+                </tr></thead>
                 <tbody>
                 <?php foreach ( $services as $key => $service ) :
                     $is_enabled = isset( $overrides[ $key ] ) ? ! empty( $overrides[ $key ]['enabled'] ) : ! empty( $service['enabled'] );
+                    $is_custom  = isset( $custom_services[ $key ] );
                 ?>
                     <tr>
                         <td><input type="checkbox" name="sgcc_service_enabled[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( $is_enabled ); ?> /></td>
-                        <td><strong><?php echo esc_html( $service['name'] ); ?></strong></td>
+                        <td>
+                            <strong><?php echo esc_html( $service['name'] ); ?></strong>
+                            <?php if ( $is_custom ) : ?>
+                                <span class="sgcc-admin__custom-badge"><?php esc_html_e( 'custom', 'sgcc' ); ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo esc_html( ucfirst( $service['category'] ) ); ?></td>
                         <td><code><?php echo esc_html( implode( ', ', $service['patterns'] ) ); ?></code></td>
+                        <td>
+                            <?php if ( $is_custom ) : ?>
+                                <a href="<?php echo esc_url( add_query_arg( array( 'page' => 'sgcc-settings', 'tab' => 'services', 'edit_service' => $key ), admin_url( 'options-general.php' ) ) ); ?>" class="sgcc-admin__action-link"><?php esc_html_e( 'Edit', 'sgcc' ); ?></a>
+                                &nbsp;|&nbsp;
+                                <form method="post" class="sgcc-admin__inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'Are you sure you want to delete this custom service?', 'sgcc' ) ); ?>');">
+                                    <?php wp_nonce_field( 'sgcc_delete_custom_service' ); ?>
+                                    <input type="hidden" name="sgcc_delete_service_slug" value="<?php echo esc_attr( $key ); ?>" />
+                                    <button type="submit" name="sgcc_delete_custom_service" value="1" class="button-link sgcc-admin__action-link sgcc-admin__action-link--delete"><?php esc_html_e( 'Delete', 'sgcc' ); ?></button>
+                                </form>
+                            <?php else : ?>
+                                &mdash;
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -320,21 +400,48 @@ class SGCC_Admin {
         </form>
 
         <hr />
-        <h2><?php esc_html_e( 'Add Custom Service', 'sgcc' ); ?></h2>
+        <?php
+        // Formular: Add oder Edit Modus.
+        $form_mode     = 'add';
+        $form_slug     = '';
+        $form_name     = '';
+        $form_category = 'video';
+        $form_patterns = '';
+
+        if ( $editing_slug && isset( $custom_services[ $editing_slug ] ) ) {
+            $form_mode     = 'edit';
+            $edit_service  = $custom_services[ $editing_slug ];
+            $form_slug     = $editing_slug;
+            $form_name     = $edit_service['name'] ?? '';
+            $form_category = $edit_service['category'] ?? 'video';
+            $form_patterns = implode( "\n", $edit_service['patterns'] ?? array() );
+        }
+
+        $form_title       = ( 'edit' === $form_mode ) ? __( 'Edit Custom Service', 'sgcc' ) : __( 'Add Custom Service', 'sgcc' );
+        $form_action_name = ( 'edit' === $form_mode ) ? 'sgcc_edit_custom_service' : 'sgcc_add_custom_service';
+        $form_button_text = ( 'edit' === $form_mode ) ? __( 'Update Service', 'sgcc' ) : __( 'Add Service', 'sgcc' );
+        ?>
+        <h2><?php echo esc_html( $form_title ); ?></h2>
+        <?php if ( 'edit' === $form_mode ) : ?>
+            <p><a href="<?php echo esc_url( add_query_arg( array( 'page' => 'sgcc-settings', 'tab' => 'services' ), admin_url( 'options-general.php' ) ) ); ?>">&larr; <?php esc_html_e( 'Cancel editing', 'sgcc' ); ?></a></p>
+        <?php endif; ?>
         <form method="post">
-            <?php wp_nonce_field( 'sgcc_add_custom_service' ); ?>
+            <?php wp_nonce_field( $form_action_name ); ?>
+            <?php if ( 'edit' === $form_mode ) : ?>
+                <input type="hidden" name="sgcc_edit_original_slug" value="<?php echo esc_attr( $editing_slug ); ?>" />
+            <?php endif; ?>
             <table class="form-table">
-                <tr><th><label for="custom_service_slug">Slug</label></th><td><input type="text" id="custom_service_slug" name="custom_service_slug" class="regular-text" required /></td></tr>
-                <tr><th><label for="custom_service_name">Name</label></th><td><input type="text" id="custom_service_name" name="custom_service_name" class="regular-text" required /></td></tr>
+                <tr><th><label for="custom_service_slug">Slug</label></th><td><input type="text" id="custom_service_slug" name="custom_service_slug" value="<?php echo esc_attr( $form_slug ); ?>" class="regular-text" required /></td></tr>
+                <tr><th><label for="custom_service_name">Name</label></th><td><input type="text" id="custom_service_name" name="custom_service_name" value="<?php echo esc_attr( $form_name ); ?>" class="regular-text" required /></td></tr>
                 <tr><th><label for="custom_service_category">Category</label></th><td>
                     <select id="custom_service_category" name="custom_service_category">
-                        <option value="audio">Audio</option>
-                        <option value="video">Video</option>
+                        <option value="audio" <?php selected( $form_category, 'audio' ); ?>>Audio</option>
+                        <option value="video" <?php selected( $form_category, 'video' ); ?>>Video</option>
                     </select>
                 </td></tr>
-                <tr><th><label for="custom_service_patterns">URL Patterns (one per line)</label></th><td><textarea id="custom_service_patterns" name="custom_service_patterns" rows="3" class="large-text" required></textarea></td></tr>
+                <tr><th><label for="custom_service_patterns">URL Patterns (one per line)</label></th><td><textarea id="custom_service_patterns" name="custom_service_patterns" rows="3" class="large-text" required><?php echo esc_textarea( $form_patterns ); ?></textarea></td></tr>
             </table>
-            <?php submit_button( __( 'Add Service', 'sgcc' ), 'secondary', 'sgcc_add_custom_service' ); ?>
+            <?php submit_button( $form_button_text, 'secondary', $form_action_name ); ?>
         </form>
 
         <hr />

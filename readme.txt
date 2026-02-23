@@ -4,7 +4,7 @@ Tags: cookie consent, GDPR, DSGVO, embed blocking, privacy
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.5.1
+Stable tag: 1.6
 License: GPL-2.0+
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,11 @@ SchonGeil Cookie Consent is a lightweight, self-hosted WordPress plugin that blo
 3. Go to Settings > Cookie Consent to configure
 
 == Changelog ==
+
+= 1.6 =
+* Neu: PHPUnit-Test-Suite für kritische Regex-Patterns (Service-Erkennung, IP-Anonymisierung, Hex-Farb-Validierung, Embed-Blocking)
+* Neu: Custom Services können jetzt bearbeitet und gelöscht werden (CRUD komplett)
+* Verbesserung: Custom Services werden in der Services-Tabelle visuell als „custom" gekennzeichnet
 
 = 1.5.1 =
 * Fix: Consent-Log schlug fehl wenn IP-Anonymisierung auf Hash stand (SHA-256 = 64 Zeichen, Spalte nur 45)
