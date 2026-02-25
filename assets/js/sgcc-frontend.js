@@ -547,24 +547,67 @@
                             // Extract Instagram post/reel URL path for /embed/ iframe.
                             var match = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
                             if (match) {
-                                var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/';
+                                // Use captioned embed with referrer for best compatibility.
+                                var captioned = originalHtml.indexOf('data-instgrm-captioned') !== -1 ? 'captioned/' : '';
+                                var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/' + captioned
+                                    + '?cr=1&v=14&wp=540&rd=' + encodeURIComponent(window.location.origin);
                                 var iframe = document.createElement('iframe');
                                 iframe.src = iframeSrc;
-                                iframe.width = '540';
-                                iframe.height = '660';
-                                iframe.frameBorder = '0';
-                                iframe.scrolling = 'no';
-                                iframe.allowTransparency = 'true';
+                                iframe.setAttribute('width', '540');
+                                iframe.setAttribute('height', '750');
+                                iframe.setAttribute('frameborder', '0');
+                                iframe.setAttribute('scrolling', 'no');
+                                iframe.setAttribute('allowtransparency', 'true');
+                                iframe.setAttribute('allowfullscreen', 'true');
+                                iframe.setAttribute('allow', 'encrypted-media');
                                 iframe.style.maxWidth = '100%';
+                                iframe.style.minWidth = '326px';
                                 iframe.style.margin = '0 auto';
                                 iframe.style.display = 'block';
                                 iframe.style.border = '1px solid #dbdbdb';
                                 iframe.style.borderRadius = '4px';
                                 iframe.style.background = '#fff';
+                                iframe.style.overflow = 'hidden';
+
+                                // If iframe content fails to load (blank/blocked),
+                                // show a direct link to the Instagram post.
+                                iframe.onerror = function () { loadLinkFallback(); };
+                                setTimeout(function () {
+                                    // After 5s, check if iframe has content.
+                                    try {
+                                        // Cross-origin: accessing contentDocument throws.
+                                        // If we CAN access it and body is empty, it's likely blocked.
+                                        if (iframe.contentDocument && iframe.contentDocument.body
+                                            && iframe.contentDocument.body.innerHTML.length < 50) {
+                                            loadLinkFallback();
+                                        }
+                                    } catch (e) {
+                                        // Cross-origin = content loaded from instagram.com = OK.
+                                    }
+                                }, 5000);
+
                                 // Replace blockquote with iframe.
                                 temp.innerHTML = '';
                                 temp.appendChild(iframe);
+                            } else {
+                                loadLinkFallback();
                             }
+                        };
+
+                        // Final fallback: styled link card to the Instagram post.
+                        var loadLinkFallback = function () {
+                            var cleanUrl = igUrl.replace(/[?&]amp;.*$/, '').replace(/[?&]utm_.*$/, '');
+                            temp.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
+                                + 'style="display:block;max-width:540px;margin:0 auto;padding:20px;border:1px solid #dbdbdb;'
+                                + 'border-radius:8px;background:#fff;text-align:center;text-decoration:none;color:#262626;'
+                                + 'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'
+                                + '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="2" '
+                                + 'stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;">'
+                                + '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>'
+                                + '<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>'
+                                + '<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>'
+                                + '<div style="font-size:16px;font-weight:600;margin-bottom:6px;">Instagram-Beitrag ansehen</div>'
+                                + '<div style="font-size:13px;color:#8e8e8e;">Auf Instagram öffnen</div></a>';
                         };
 
                         var processIG = function () {
