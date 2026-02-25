@@ -528,133 +528,59 @@
                     originalHtml = blockedEmbed.getAttribute('data-sgcc-html');
                 }
                 if (originalHtml) {
-                    // IMPORTANT: Strip <script> tags from HTML before innerHTML insertion.
-                    // Scripts added via innerHTML do NOT execute (browser security).
-                    // We load the required scripts separately via DOM API below.
-                    var cleanHtml = originalHtml.replace(/<script[^>]*instagram\.com\/embed\.js[^>]*><\/script>/gi, '');
-
-                    var temp = document.createElement('div');
-                    temp.innerHTML = cleanHtml;
-                    placeholder.parentNode.replaceChild(temp, placeholder);
-
-                    // Handle Instagram embeds: load embed.js via DOM API and process.
+                    // Handle Instagram embeds: use iframe directly instead of
+                    // embed.js (avoids issues with Firefox tracking protection,
+                    // content jumping, and silent failures).
                     if (originalHtml.indexOf('instagram-media') !== -1) {
                         var igUrl = blockedEmbed.getAttribute('data-sgcc-url') || '';
+                        var match = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
 
-                        // Build iframe fallback function: creates a direct oEmbed iframe
-                        // that works without embed.js (Firefox tracking protection, etc.).
-                        var loadIframeFallback = function () {
-                            // Extract Instagram post/reel URL path for /embed/ iframe.
-                            var match = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
-                            if (match) {
-                                // Use captioned embed with referrer for best compatibility.
-                                var captioned = originalHtml.indexOf('data-instgrm-captioned') !== -1 ? 'captioned/' : '';
-                                var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/' + captioned
-                                    + '?cr=1&v=14&wp=540&rd=' + encodeURIComponent(window.location.origin);
-                                var iframe = document.createElement('iframe');
-                                iframe.src = iframeSrc;
-                                iframe.setAttribute('width', '540');
-                                iframe.setAttribute('height', '750');
-                                iframe.setAttribute('frameborder', '0');
-                                iframe.setAttribute('scrolling', 'no');
-                                iframe.setAttribute('allowtransparency', 'true');
-                                iframe.setAttribute('allowfullscreen', 'true');
-                                iframe.setAttribute('allow', 'encrypted-media');
-                                iframe.style.maxWidth = '100%';
-                                iframe.style.minWidth = '326px';
-                                iframe.style.margin = '0 auto';
-                                iframe.style.display = 'block';
-                                iframe.style.border = '1px solid #dbdbdb';
-                                iframe.style.borderRadius = '4px';
-                                iframe.style.background = '#fff';
-                                iframe.style.overflow = 'hidden';
+                        if (match) {
+                            var captioned = originalHtml.indexOf('data-instgrm-captioned') !== -1 ? 'captioned/' : '';
+                            var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/' + captioned
+                                + '?cr=1&v=14&wp=540&rd=' + encodeURIComponent(window.location.origin);
 
-                                // If iframe content fails to load (blank/blocked),
-                                // show a direct link to the Instagram post.
-                                iframe.onerror = function () { loadLinkFallback(); };
-                                setTimeout(function () {
-                                    // After 5s, check if iframe has content.
-                                    try {
-                                        // Cross-origin: accessing contentDocument throws.
-                                        // If we CAN access it and body is empty, it's likely blocked.
-                                        if (iframe.contentDocument && iframe.contentDocument.body
-                                            && iframe.contentDocument.body.innerHTML.length < 50) {
-                                            loadLinkFallback();
-                                        }
-                                    } catch (e) {
-                                        // Cross-origin = content loaded from instagram.com = OK.
-                                    }
-                                }, 5000);
+                            var wrapper = document.createElement('div');
+                            wrapper.style.maxWidth = '540px';
+                            wrapper.style.margin = '0 auto';
 
-                                // Replace blockquote with iframe.
-                                temp.innerHTML = '';
-                                temp.appendChild(iframe);
-                            } else {
-                                loadLinkFallback();
-                            }
-                        };
+                            var iframe = document.createElement('iframe');
+                            iframe.src = iframeSrc;
+                            iframe.setAttribute('width', '540');
+                            iframe.setAttribute('height', '750');
+                            iframe.setAttribute('frameborder', '0');
+                            iframe.setAttribute('scrolling', 'no');
+                            iframe.setAttribute('allowtransparency', 'true');
+                            iframe.setAttribute('allowfullscreen', 'true');
+                            iframe.setAttribute('allow', 'encrypted-media');
+                            iframe.style.maxWidth = '100%';
+                            iframe.style.minWidth = '326px';
+                            iframe.style.display = 'block';
+                            iframe.style.border = '1px solid #dbdbdb';
+                            iframe.style.borderRadius = '4px';
+                            iframe.style.background = '#fff';
+                            iframe.style.overflow = 'hidden';
 
-                        // Final fallback: styled link card to the Instagram post.
-                        var loadLinkFallback = function () {
+                            wrapper.appendChild(iframe);
+                            placeholder.parentNode.replaceChild(wrapper, placeholder);
+                        } else {
+                            // No matching URL – show link to Instagram post.
                             var cleanUrl = igUrl.replace(/[?&]amp;.*$/, '').replace(/[?&]utm_.*$/, '');
-                            temp.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
+                            var linkCard = document.createElement('div');
+                            linkCard.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
                                 + 'style="display:block;max-width:540px;margin:0 auto;padding:20px;border:1px solid #dbdbdb;'
                                 + 'border-radius:8px;background:#fff;text-align:center;text-decoration:none;color:#262626;'
                                 + 'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'
-                                + '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="2" '
-                                + 'stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;">'
-                                + '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>'
-                                + '<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>'
-                                + '<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>'
                                 + '<div style="font-size:16px;font-weight:600;margin-bottom:6px;">Instagram-Beitrag ansehen</div>'
-                                + '<div style="font-size:13px;color:#8e8e8e;">Auf Instagram öffnen</div></a>';
-                        };
-
-                        var processIG = function () {
-                            if (window.instgrm && window.instgrm.Embeds) {
-                                window.instgrm.Embeds.process();
-                            }
-                        };
-
-                        if (window.instgrm) {
-                            // embed.js already loaded from another embed – just re-process.
-                            processIG();
-                            // Check after a delay if processing actually worked.
-                            setTimeout(function () {
-                                if (temp.querySelector('blockquote.instagram-media')) {
-                                    loadIframeFallback();
-                                }
-                            }, 2000);
-                        } else {
-                            // Remove any dead script tags (inserted via innerHTML, never executed).
-                            var deadScripts = document.querySelectorAll('script[src*="instagram.com/embed.js"]');
-                            for (var ds = 0; ds < deadScripts.length; ds++) {
-                                deadScripts[ds].parentNode.removeChild(deadScripts[ds]);
-                            }
-                            // Create a fresh script element via DOM API (this WILL execute).
-                            var igScript = document.createElement('script');
-                            igScript.src = 'https://www.instagram.com/embed.js';
-                            igScript.async = true;
-                            igScript.onload = function () {
-                                // Delay process() to ensure DOM is settled.
-                                setTimeout(function () {
-                                    processIG();
-                                    // Check after another delay if processing actually worked.
-                                    // If the blockquote is still there, embed.js failed silently.
-                                    setTimeout(function () {
-                                        if (temp.querySelector('blockquote.instagram-media')) {
-                                            loadIframeFallback();
-                                        }
-                                    }, 2000);
-                                }, 200);
-                            };
-                            igScript.onerror = function () {
-                                // embed.js blocked (Firefox tracking protection, etc.):
-                                // use direct iframe embed as fallback.
-                                loadIframeFallback();
-                            };
-                            document.body.appendChild(igScript);
+                                + '<div style="font-size:13px;color:#8e8e8e;">Auf Instagram &ouml;ffnen</div></a>';
+                            placeholder.parentNode.replaceChild(linkCard, placeholder);
                         }
+                    } else {
+                        // Non-Instagram blocked embed: restore original HTML.
+                        var cleanHtml = originalHtml.replace(/<script[^>]*><\/script>/gi, '');
+                        var temp = document.createElement('div');
+                        temp.innerHTML = cleanHtml;
+                        placeholder.parentNode.replaceChild(temp, placeholder);
                     }
                 }
             }
