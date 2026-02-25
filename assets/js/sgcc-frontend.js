@@ -528,52 +528,113 @@
                     originalHtml = blockedEmbed.getAttribute('data-sgcc-html');
                 }
                 if (originalHtml) {
-                    // Handle Instagram embeds: use iframe directly instead of
-                    // embed.js (avoids issues with Firefox tracking protection,
-                    // content jumping, and silent failures).
+                    // Handle Instagram embeds.
                     if (originalHtml.indexOf('instagram-media') !== -1) {
                         var igUrl = blockedEmbed.getAttribute('data-sgcc-url') || '';
-                        var match = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
+                        var igMatch = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
+                        var parentNode = placeholder.parentNode;
 
-                        if (match) {
-                            var captioned = originalHtml.indexOf('data-instgrm-captioned') !== -1 ? 'captioned/' : '';
-                            var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/' + captioned
-                                + '?cr=1&v=14&wp=540&rd=' + encodeURIComponent(window.location.origin);
-
-                            var wrapper = document.createElement('div');
-                            wrapper.style.maxWidth = '540px';
-                            wrapper.style.margin = '0 auto';
-
-                            var iframe = document.createElement('iframe');
-                            iframe.src = iframeSrc;
-                            iframe.setAttribute('width', '540');
-                            iframe.setAttribute('height', '750');
-                            iframe.setAttribute('frameborder', '0');
-                            iframe.setAttribute('scrolling', 'no');
-                            iframe.setAttribute('allowtransparency', 'true');
-                            iframe.setAttribute('allowfullscreen', 'true');
-                            iframe.setAttribute('allow', 'encrypted-media');
-                            iframe.style.maxWidth = '100%';
-                            iframe.style.minWidth = '326px';
-                            iframe.style.display = 'block';
-                            iframe.style.border = '1px solid #dbdbdb';
-                            iframe.style.borderRadius = '4px';
-                            iframe.style.background = '#fff';
-                            iframe.style.overflow = 'hidden';
-
-                            wrapper.appendChild(iframe);
-                            placeholder.parentNode.replaceChild(wrapper, placeholder);
-                        } else {
-                            // No matching URL – show link to Instagram post.
+                        // Link card: final fallback shown when embed.js and iframe fail.
+                        var showLinkCard = function () {
                             var cleanUrl = igUrl.replace(/[?&]amp;.*$/, '').replace(/[?&]utm_.*$/, '');
-                            var linkCard = document.createElement('div');
-                            linkCard.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
-                                + 'style="display:block;max-width:540px;margin:0 auto;padding:20px;border:1px solid #dbdbdb;'
-                                + 'border-radius:8px;background:#fff;text-align:center;text-decoration:none;color:#262626;'
+                            if (!cleanUrl) cleanUrl = igUrl;
+                            var card = document.createElement('div');
+                            card.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
+                                + 'style="display:block;max-width:540px;margin:10px auto;padding:24px 20px;border:1px solid #dbdbdb;'
+                                + 'border-radius:12px;background:#fff;text-align:center;text-decoration:none;color:#262626;'
                                 + 'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'
-                                + '<div style="font-size:16px;font-weight:600;margin-bottom:6px;">Instagram-Beitrag ansehen</div>'
-                                + '<div style="font-size:13px;color:#8e8e8e;">Auf Instagram &ouml;ffnen</div></a>';
-                            placeholder.parentNode.replaceChild(linkCard, placeholder);
+                                + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="1.5" '
+                                + 'stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:14px;">'
+                                + '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>'
+                                + '<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>'
+                                + '<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><br>'
+                                + '<span style="font-size:16px;font-weight:600;">Instagram-Beitrag ansehen</span><br>'
+                                + '<span style="font-size:13px;color:#8e8e8e;margin-top:4px;display:inline-block;">Auf Instagram &ouml;ffnen &rarr;</span></a>';
+                            // Replace whatever is currently shown.
+                            if (placeholder.parentNode) {
+                                placeholder.parentNode.replaceChild(card, placeholder);
+                            } else if (parentNode) {
+                                parentNode.appendChild(card);
+                            }
+                        };
+
+                        // Strategy: try embed.js in the background.
+                        // Keep the placeholder visible while loading.
+                        // Only replace once we know the result.
+                        var cleanHtml = originalHtml.replace(/<script[^>]*instagram\.com\/embed\.js[^>]*><\/script>/gi, '');
+
+                        // Create a hidden staging area for the blockquote.
+                        var stage = document.createElement('div');
+                        stage.style.position = 'absolute';
+                        stage.style.left = '-9999px';
+                        stage.style.top = '-9999px';
+                        stage.style.width = '540px';
+                        stage.innerHTML = cleanHtml;
+                        document.body.appendChild(stage);
+
+                        var embedDone = false;
+
+                        var onEmbedSuccess = function () {
+                            if (embedDone) return;
+                            embedDone = true;
+                            // embed.js processed the blockquote – it's now an iframe inside stage.
+                            stage.style.position = '';
+                            stage.style.left = '';
+                            stage.style.top = '';
+                            stage.style.width = '';
+                            stage.style.maxWidth = '540px';
+                            stage.style.margin = '0 auto';
+                            if (placeholder.parentNode) {
+                                placeholder.parentNode.replaceChild(stage, placeholder);
+                            }
+                        };
+
+                        var onEmbedFail = function () {
+                            if (embedDone) return;
+                            embedDone = true;
+                            // Clean up hidden stage.
+                            if (stage.parentNode) stage.parentNode.removeChild(stage);
+                            showLinkCard();
+                        };
+
+                        // Timeout: if embed.js hasn't processed within 4s, give up.
+                        var checkTimer = setTimeout(onEmbedFail, 4000);
+
+                        // Poll: check if embed.js has processed the blockquote
+                        // (it replaces blockquote with an iframe).
+                        var pollInterval = setInterval(function () {
+                            if (embedDone) { clearInterval(pollInterval); return; }
+                            var bq = stage.querySelector('blockquote.instagram-media');
+                            if (!bq) {
+                                // Blockquote is gone = embed.js processed it successfully.
+                                clearInterval(pollInterval);
+                                clearTimeout(checkTimer);
+                                onEmbedSuccess();
+                            }
+                        }, 200);
+
+                        // Try loading embed.js.
+                        if (window.instgrm && window.instgrm.Embeds) {
+                            window.instgrm.Embeds.process(stage);
+                        } else {
+                            var deadScripts = document.querySelectorAll('script[src*="instagram.com/embed.js"]');
+                            for (var ds = 0; ds < deadScripts.length; ds++) {
+                                deadScripts[ds].parentNode.removeChild(deadScripts[ds]);
+                            }
+                            var igScript = document.createElement('script');
+                            igScript.src = 'https://www.instagram.com/embed.js';
+                            igScript.async = true;
+                            igScript.onload = function () {
+                                if (!embedDone && window.instgrm && window.instgrm.Embeds) {
+                                    window.instgrm.Embeds.process(stage);
+                                }
+                            };
+                            igScript.onerror = function () {
+                                clearInterval(pollInterval);
+                                clearTimeout(checkTimer);
+                                onEmbedFail();
+                            };
+                            document.body.appendChild(igScript);
                         }
                     } else {
                         // Non-Instagram blocked embed: restore original HTML.
