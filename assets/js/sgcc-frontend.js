@@ -511,8 +511,22 @@
             var blockedEmbed = embedContainer.querySelector('.sgcc-blocked-embed');
             if (blockedEmbed) {
                 // Decode base64-encoded original HTML (avoids double-encoding issues).
+                // Use UTF-8-safe decoding: atob returns Latin1, so we must
+                // convert multi-byte sequences back to proper UTF-8 characters.
                 var b64 = blockedEmbed.getAttribute('data-sgcc-html-b64');
-                var originalHtml = b64 ? atob(b64) : blockedEmbed.getAttribute('data-sgcc-html');
+                var originalHtml;
+                if (b64) {
+                    try {
+                        originalHtml = decodeURIComponent(atob(b64).split('').map(function (c) {
+                            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                        }).join(''));
+                    } catch (e) {
+                        // Fallback: plain atob (works if content is ASCII-only).
+                        originalHtml = atob(b64);
+                    }
+                } else {
+                    originalHtml = blockedEmbed.getAttribute('data-sgcc-html');
+                }
                 if (originalHtml) {
                     // IMPORTANT: Strip <script> tags from HTML before innerHTML insertion.
                     // Scripts added via innerHTML do NOT execute (browser security).
@@ -531,6 +545,18 @@
                             }
                         };
 
+                        // Retry mechanism: Instagram embed.js may not be immediately
+                        // available (Firefox tracking protection, slow load, etc.).
+                        var retryProcess = function (attemptsLeft) {
+                            if (window.instgrm && window.instgrm.Embeds) {
+                                window.instgrm.Embeds.process();
+                                return;
+                            }
+                            if (attemptsLeft > 0) {
+                                setTimeout(function () { retryProcess(attemptsLeft - 1); }, 500);
+                            }
+                        };
+
                         if (window.instgrm) {
                             // embed.js already loaded from another embed – just re-process.
                             processIG();
@@ -544,8 +570,27 @@
                             var igScript = document.createElement('script');
                             igScript.src = 'https://www.instagram.com/embed.js';
                             igScript.async = true;
-                            igScript.onload = processIG;
+                            igScript.onload = function () {
+                                // Delay process() to ensure DOM is settled (Firefox needs this).
+                                setTimeout(processIG, 100);
+                            };
+                            igScript.onerror = function () {
+                                // embed.js blocked (e.g. Firefox tracking protection):
+                                // show the raw blockquote as visible fallback.
+                                var blockquotes = temp.querySelectorAll('blockquote.instagram-media');
+                                for (var bq = 0; bq < blockquotes.length; bq++) {
+                                    blockquotes[bq].style.display = 'block';
+                                    blockquotes[bq].style.maxWidth = '540px';
+                                    blockquotes[bq].style.margin = '0 auto';
+                                    blockquotes[bq].style.border = '1px solid #dbdbdb';
+                                    blockquotes[bq].style.borderRadius = '4px';
+                                    blockquotes[bq].style.padding = '16px';
+                                    blockquotes[bq].style.background = '#fff';
+                                }
+                            };
                             document.body.appendChild(igScript);
+                            // Fallback retry in case onload fires before instgrm is set.
+                            retryProcess(6);
                         }
                     }
                 }
