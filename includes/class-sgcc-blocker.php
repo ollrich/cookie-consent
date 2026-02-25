@@ -316,6 +316,14 @@ class SGCC_Blocker {
                     <?php if ( $privacy_url ) : ?>
                         <a class="sgcc-placeholder__privacy-link" href="<?php echo esc_url( $privacy_url ); ?>"><?php echo esc_html( $privacy_link_text ); ?></a>
                     <?php endif; ?>
+                    <?php if ( 'instagram' === $service_key ) : ?>
+                        <?php
+                        $tp_hint = ( 'en' === $this->get_current_lang() )
+                            ? 'If the post does not display after unblocking, check your browser\'s Enhanced Tracking Protection settings.'
+                            : 'Sollte der Beitrag nach dem Entblocken nicht angezeigt werden, prüfe die Erweiterte Tracking-Schutz Einstellungen deines Browsers.';
+                        ?>
+                        <p class="sgcc-placeholder__tp-hint"><?php echo esc_html( $tp_hint ); ?></p>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="sgcc-placeholder__embed" style="display:none;">

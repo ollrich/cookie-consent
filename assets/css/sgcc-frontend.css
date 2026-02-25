@@ -384,6 +384,15 @@
     transition: color var(--sgcc-transition);
 }
 .sgcc-placeholder__privacy-link:hover { color: #fff; }
+.sgcc-placeholder__tp-hint {
+    margin: 12px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: rgba(255,255,255,.5);
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+}
 
 /* Loaded state: container becomes transparent, iframe fills it */
 .sgcc-placeholder--loaded {

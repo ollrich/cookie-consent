@@ -539,6 +539,9 @@
                             var cleanUrl = igUrl.replace(/[?&]amp;.*$/, '').replace(/[?&]utm_.*$/, '');
                             if (!cleanUrl) cleanUrl = igUrl;
                             var card = document.createElement('div');
+                            var isDE = (document.documentElement.lang || '').indexOf('de') === 0;
+                            var cardTitle = isDE ? 'Instagram-Beitrag ansehen' : 'View Instagram Post';
+                            var cardLink = isDE ? 'Auf Instagram &ouml;ffnen &rarr;' : 'Open on Instagram &rarr;';
                             card.innerHTML = '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" '
                                 + 'style="display:block;max-width:540px;margin:10px auto;padding:24px 20px;border:1px solid #dbdbdb;'
                                 + 'border-radius:12px;background:#fff;text-align:center;text-decoration:none;color:#262626;'
@@ -548,8 +551,8 @@
                                 + '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>'
                                 + '<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>'
                                 + '<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><br>'
-                                + '<span style="font-size:16px;font-weight:600;">Instagram-Beitrag ansehen</span><br>'
-                                + '<span style="font-size:13px;color:#8e8e8e;margin-top:4px;display:inline-block;">Auf Instagram &ouml;ffnen &rarr;</span></a>';
+                                + '<span style="font-size:16px;font-weight:600;">' + cardTitle + '</span><br>'
+                                + '<span style="font-size:13px;color:#8e8e8e;margin-top:4px;display:inline-block;">' + cardLink + '</span></a>';
                             // Replace whatever is currently shown.
                             if (placeholder.parentNode) {
                                 placeholder.parentNode.replaceChild(card, placeholder);
