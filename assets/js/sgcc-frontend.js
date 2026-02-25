@@ -539,27 +539,49 @@
 
                     // Handle Instagram embeds: load embed.js via DOM API and process.
                     if (originalHtml.indexOf('instagram-media') !== -1) {
+                        var igUrl = blockedEmbed.getAttribute('data-sgcc-url') || '';
+
+                        // Build iframe fallback function: creates a direct oEmbed iframe
+                        // that works without embed.js (Firefox tracking protection, etc.).
+                        var loadIframeFallback = function () {
+                            // Extract Instagram post/reel URL path for /embed/ iframe.
+                            var match = igUrl.match(/instagram\.com\/(p|reel)\/([^/?]+)/);
+                            if (match) {
+                                var iframeSrc = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/';
+                                var iframe = document.createElement('iframe');
+                                iframe.src = iframeSrc;
+                                iframe.width = '540';
+                                iframe.height = '660';
+                                iframe.frameBorder = '0';
+                                iframe.scrolling = 'no';
+                                iframe.allowTransparency = 'true';
+                                iframe.style.maxWidth = '100%';
+                                iframe.style.margin = '0 auto';
+                                iframe.style.display = 'block';
+                                iframe.style.border = '1px solid #dbdbdb';
+                                iframe.style.borderRadius = '4px';
+                                iframe.style.background = '#fff';
+                                // Replace blockquote with iframe.
+                                temp.innerHTML = '';
+                                temp.appendChild(iframe);
+                            }
+                        };
+
                         var processIG = function () {
                             if (window.instgrm && window.instgrm.Embeds) {
                                 window.instgrm.Embeds.process();
                             }
                         };
 
-                        // Retry mechanism: Instagram embed.js may not be immediately
-                        // available (Firefox tracking protection, slow load, etc.).
-                        var retryProcess = function (attemptsLeft) {
-                            if (window.instgrm && window.instgrm.Embeds) {
-                                window.instgrm.Embeds.process();
-                                return;
-                            }
-                            if (attemptsLeft > 0) {
-                                setTimeout(function () { retryProcess(attemptsLeft - 1); }, 500);
-                            }
-                        };
-
                         if (window.instgrm) {
                             // embed.js already loaded from another embed – just re-process.
                             processIG();
+                            // Check after a delay if processing actually worked.
+                            setTimeout(function () {
+                                if (temp.querySelector('blockquote.instagram-media')) {
+                                    loadIframeFallback();
+                                }
+                            }, 2000);
                         } else {
                             // Remove any dead script tags (inserted via innerHTML, never executed).
                             var deadScripts = document.querySelectorAll('script[src*="instagram.com/embed.js"]');
@@ -571,26 +593,24 @@
                             igScript.src = 'https://www.instagram.com/embed.js';
                             igScript.async = true;
                             igScript.onload = function () {
-                                // Delay process() to ensure DOM is settled (Firefox needs this).
-                                setTimeout(processIG, 100);
+                                // Delay process() to ensure DOM is settled.
+                                setTimeout(function () {
+                                    processIG();
+                                    // Check after another delay if processing actually worked.
+                                    // If the blockquote is still there, embed.js failed silently.
+                                    setTimeout(function () {
+                                        if (temp.querySelector('blockquote.instagram-media')) {
+                                            loadIframeFallback();
+                                        }
+                                    }, 2000);
+                                }, 200);
                             };
                             igScript.onerror = function () {
-                                // embed.js blocked (e.g. Firefox tracking protection):
-                                // show the raw blockquote as visible fallback.
-                                var blockquotes = temp.querySelectorAll('blockquote.instagram-media');
-                                for (var bq = 0; bq < blockquotes.length; bq++) {
-                                    blockquotes[bq].style.display = 'block';
-                                    blockquotes[bq].style.maxWidth = '540px';
-                                    blockquotes[bq].style.margin = '0 auto';
-                                    blockquotes[bq].style.border = '1px solid #dbdbdb';
-                                    blockquotes[bq].style.borderRadius = '4px';
-                                    blockquotes[bq].style.padding = '16px';
-                                    blockquotes[bq].style.background = '#fff';
-                                }
+                                // embed.js blocked (Firefox tracking protection, etc.):
+                                // use direct iframe embed as fallback.
+                                loadIframeFallback();
                             };
                             document.body.appendChild(igScript);
-                            // Fallback retry in case onload fires before instgrm is set.
-                            retryProcess(6);
                         }
                     }
                 }
