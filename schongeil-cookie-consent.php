@@ -3,7 +3,7 @@
  * Plugin Name: schongeil.de Cookie Consent
  * Plugin URI: https://schongeil.de
  * Description: Schlankes, selbst gehostetes Cookie Consent Plugin für schongeil.de. Blockiert Drittanbieter-Embeds (YouTube, Vimeo, SoundCloud, Bandcamp, hearthis.at, Instagram, Spotify, Mixcloud) vor der Einwilligung mit dienstspezifischen Platzhaltern.
- * Version: 1.6
+ * Version: 1.7
  * Author: schongeil.de
  * Author URI: https://schongeil.de
  * License: GPL-2.0+
@@ -18,13 +18,14 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SGCC_VERSION', '1.6' );
+define( 'SGCC_VERSION', '1.7' );
 define( 'SGCC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SGCC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'SGCC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'SGCC_CONSENT_COOKIE', 'sgcc_consent' );
 define( 'SGCC_DB_VERSION', '1.1' );
 
+require_once SGCC_PLUGIN_DIR . 'includes/trait-sgcc-l10n.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-services.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-blocker.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-frontend.php';
@@ -62,7 +63,6 @@ function sgcc_activate() {
         'sgcc_services'               => array(),
         'sgcc_custom_services'        => array(),
         'sgcc_cookies'                => array(),
-        'sgcc_categories'             => array(),
         'sgcc_texts'                  => array(),
         'sgcc_custom_link_url_de'     => '',
         'sgcc_custom_link_url_en'     => '',
@@ -108,6 +108,10 @@ function sgcc_activate() {
         SGCC_Consent_Log::create_table();
     }
 
+    if ( ! wp_next_scheduled( 'sgcc_daily_log_cleanup' ) ) {
+        wp_schedule_event( time(), 'daily', 'sgcc_daily_log_cleanup' );
+    }
+
     flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'sgcc_activate' );
@@ -116,6 +120,7 @@ register_activation_hook( __FILE__, 'sgcc_activate' );
  * Plugin deactivation.
  */
 function sgcc_deactivate() {
+    wp_clear_scheduled_hook( 'sgcc_daily_log_cleanup' );
     flush_rewrite_rules();
 }
 register_deactivation_hook( __FILE__, 'sgcc_deactivate' );

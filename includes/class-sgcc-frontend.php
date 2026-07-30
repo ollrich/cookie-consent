@@ -13,6 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SGCC_Frontend {
 
+    use SGCC_L10n;
+
     private static $instance = null;
 
     public static function get_instance() {
@@ -46,20 +48,9 @@ class SGCC_Frontend {
             'cookieSecure'   => is_ssl(),
             'consentVersion' => SGCC_VERSION,
             'isPrivacyPage'  => $this->is_privacy_page(),
-            'logEnabled'     => (bool) get_option( 'sgcc_consent_log_enabled', 0 ),
             'logNonce'       => wp_create_nonce( 'sgcc_log_consent' ),
             'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
             'services'       => $this->get_services_for_js(),
-            'categories'     => $this->get_categories_for_js(),
-            'cookies'        => get_option( 'sgcc_cookies', array() ),
-            'buttonColors'   => array(
-                'bgColor'        => get_option( 'sgcc_button_bg_color', '#1a1a2e' ),
-                'textColor'      => get_option( 'sgcc_button_text_color', '#ffffff' ),
-                'borderColor'    => get_option( 'sgcc_button_border_color', '#1a1a2e' ),
-                'hoverBgColor'   => get_option( 'sgcc_button_hover_bg_color', '#0f3460' ),
-                'hoverTextColor' => get_option( 'sgcc_button_hover_text_color', '#ffffff' ),
-                'hoverBorderColor' => get_option( 'sgcc_button_hover_border_color', '#0f3460' ),
-            ),
             'reloadOnConsent'=> true,
             'configHash'     => get_option( 'sgcc_config_hash', '' ),
         );
@@ -110,30 +101,20 @@ class SGCC_Frontend {
         return $js_data;
     }
 
-    private function get_categories_for_js() {
-        $categories = SGCC_Services::get_default_categories();
-        $lang = $this->get_current_lang();
-        $js_data = array();
-        foreach ( $categories as $key => $cat ) {
-            $js_data[ $key ] = array(
-                'name'     => $cat[ 'name_' . $lang ] ?? $cat['name_de'],
-                'required' => ! empty( $cat['required'] ),
-            );
-        }
-        return $js_data;
-    }
-
     public function render_banner() {
         $position = get_option( 'sgcc_banner_position', 'bottom' );
         $lang     = $this->get_current_lang();
-        $privacy_url = $this->get_privacy_url();
+        $privacy_url   = $this->get_privacy_page_url();
+        $fallback_lang = ( 'en' === $lang ) ? 'de' : 'en';
+
         $custom_link_url  = get_option( 'sgcc_custom_link_url_' . $lang, '' );
-        if ( empty( $custom_link_url ) ) {
-            // Fallback to other language.
-            $fallback_lang    = ( 'en' === $lang ) ? 'de' : 'en';
-            $custom_link_url  = get_option( 'sgcc_custom_link_url_' . $fallback_lang, '' );
-        }
         $custom_link_text = get_option( 'sgcc_custom_link_text_' . $lang, '' );
+        if ( empty( $custom_link_url ) ) {
+            // Fall back to the other language – URL and text together,
+            // so the link never mixes languages or ends up half-empty.
+            $custom_link_url  = get_option( 'sgcc_custom_link_url_' . $fallback_lang, '' );
+            $custom_link_text = get_option( 'sgcc_custom_link_text_' . $fallback_lang, '' );
+        }
 
         $texts = array(
             'title'       => $this->get_text( 'banner_title', 'Cookie-Einstellungen', 'Cookie Settings' ),
@@ -156,7 +137,7 @@ class SGCC_Frontend {
         $services    = SGCC_Services::get_enabled();
         $categories  = SGCC_Services::get_default_categories();
         $cookies     = get_option( 'sgcc_cookies', array() );
-        $privacy_url = $this->get_privacy_url();
+        $privacy_url = $this->get_privacy_page_url();
 
         $texts = array(
             'title'         => $this->get_text( 'popup_title', 'Cookie-Einstellungen', 'Cookie Settings' ),
@@ -179,9 +160,9 @@ class SGCC_Frontend {
             return;
         }
 
-        $position   = get_option( 'sgcc_floating_icon_position', 'left' );
-        $bottom     = absint( get_option( 'sgcc_floating_icon_bottom', 60 ) );
-        $side       = absint( get_option( 'sgcc_floating_icon_side', 60 ) );
+        $position   = get_option( 'sgcc_floating_icon_position', 'right' );
+        $bottom     = absint( get_option( 'sgcc_floating_icon_bottom', 20 ) );
+        $side       = absint( get_option( 'sgcc_floating_icon_side', 20 ) );
         $bg_color   = get_option( 'sgcc_floating_icon_bg_color', '#1a1a2e' );
         $text_color = get_option( 'sgcc_floating_icon_text_color', '#ffffff' );
         $label      = $this->get_text( 'floating_label', 'Cookie-Einstellungen ändern', 'Change cookie settings' );
@@ -237,40 +218,4 @@ class SGCC_Frontend {
         return '<button type="button" class="sgcc-settings-link' . $extra_class . '" data-sgcc-action="open-settings">' . esc_html( $text ) . '</button>';
     }
 
-    private function get_privacy_url() {
-        $lang = $this->get_current_lang();
-        $page_id = absint( get_option( 'sgcc_privacy_page_id_' . $lang, 0 ) );
-        if ( ! $page_id ) {
-            $fallback = ( 'en' === $lang ) ? 'de' : 'en';
-            $page_id = absint( get_option( 'sgcc_privacy_page_id_' . $fallback, 0 ) );
-        }
-        if ( ! $page_id ) {
-            $page_id = absint( get_option( 'wp_page_for_privacy_policy', 0 ) );
-        }
-        return $page_id ? get_permalink( $page_id ) : '';
-    }
-
-    private function get_current_lang() {
-        if ( function_exists( 'pll_current_language' ) ) {
-            $lang = pll_current_language( 'slug' );
-            return ( 'en' === $lang ) ? 'en' : 'de';
-        }
-        return 'de';
-    }
-
-    private function get_text( $key, $default_de, $default_en ) {
-        $lang = $this->get_current_lang();
-        if ( function_exists( 'pll__' ) ) {
-            $translated = pll__( $default_de );
-            if ( $translated !== $default_de || 'de' === $lang ) {
-                return $translated;
-            }
-            return $default_en;
-        }
-        $custom_texts = get_option( 'sgcc_texts', array() );
-        if ( isset( $custom_texts[ $lang ][ $key ] ) && ! empty( $custom_texts[ $lang ][ $key ] ) ) {
-            return $custom_texts[ $lang ][ $key ];
-        }
-        return ( 'en' === $lang ) ? $default_en : $default_de;
-    }
 }

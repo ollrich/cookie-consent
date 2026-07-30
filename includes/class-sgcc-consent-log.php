@@ -38,6 +38,17 @@ class SGCC_Consent_Log {
     private function __construct() {
         add_action( 'wp_ajax_sgcc_log_consent', array( $this, 'ajax_log_consent' ) );
         add_action( 'wp_ajax_nopriv_sgcc_log_consent', array( $this, 'ajax_log_consent' ) );
+        add_action( 'sgcc_daily_log_cleanup', array( $this, 'run_scheduled_cleanup' ) );
+    }
+
+    /**
+     * Daily WP-Cron task: prune entries past the retention period.
+     */
+    public function run_scheduled_cleanup() {
+        if ( ! get_option( 'sgcc_consent_log_enabled', 0 ) ) {
+            return;
+        }
+        $this->delete_old( absint( get_option( 'sgcc_consent_log_retention', 12 ) ) );
     }
 
     /**
@@ -155,7 +166,13 @@ class SGCC_Consent_Log {
         $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
         $ua_hash    = hash( 'sha256', $user_agent );
 
+        // Restrict to a plain version string – the value is client-supplied and
+        // ends up in CSV exports, so strip anything that could act as a formula.
         $version = isset( $consent_data['version'] ) ? sanitize_text_field( $consent_data['version'] ) : SGCC_VERSION;
+        $version = substr( preg_replace( '/[^0-9A-Za-z._-]/', '', $version ), 0, 20 );
+        if ( '' === $version ) {
+            $version = SGCC_VERSION;
+        }
 
         $result = $wpdb->insert(
             $table_name,
@@ -251,7 +268,9 @@ class SGCC_Consent_Log {
         if ( $months < 1 ) {
             $months = 12;
         }
-        $cutoff = gmdate( 'Y-m-d H:i:s', strtotime( '-' . $months . ' months' ) );
+        // created_at is stored via current_time( 'mysql' ) (site-local time),
+        // so the cutoff must be computed in the same timezone.
+        $cutoff = gmdate( 'Y-m-d H:i:s', strtotime( '-' . $months . ' months', current_time( 'timestamp' ) ) );
 
         return $wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} WHERE created_at < %s", $cutoff ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
     }
@@ -307,15 +326,23 @@ class SGCC_Consent_Log {
         }
 
         // IPv4.
-        if ( false !== strpos( $ip, '.' ) ) {
-            $parts    = explode( '.', $ip );
+        if ( false !== strpos( $ip, '.' ) && false === strpos( $ip, ':' ) ) {
+            $parts = explode( '.', $ip );
+            if ( 4 !== count( $parts ) ) {
+                return '0.0.0.0';
+            }
             $parts[3] = '0';
             return implode( '.', $parts );
         }
 
-        // IPv6: mask last 80 bits.
+        // IPv6: mask the last 80 bits (keep the /48 prefix). Binary masking
+        // via inet_pton also covers compressed notations like 2001:db8::1.
         if ( false !== strpos( $ip, ':' ) ) {
-            return preg_replace( '/:[0-9a-f]{1,4}(:[0-9a-f]{1,4}){4}$/i', ':0:0:0:0:0', $ip );
+            $packed = inet_pton( $ip );
+            if ( false === $packed || 16 !== strlen( $packed ) ) {
+                return '0.0.0.0';
+            }
+            return inet_ntop( substr( $packed, 0, 6 ) . str_repeat( "\0", 10 ) );
         }
 
         return '0.0.0.0';

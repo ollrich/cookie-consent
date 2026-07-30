@@ -46,22 +46,35 @@ class Test_Consent_Log extends TestCase {
     }
 
     /* ==================================================================
-       IPv6-Anonymisierung – letzte 80 Bit (5 Gruppen) maskiert
+       IPv6-Anonymisierung – letzte 80 Bit maskiert (nur /48 bleibt).
+       Binaeres Maskieren via inet_pton liefert die komprimierte Notation.
        ================================================================== */
 
     public static function ipv6Provider(): array {
         return array(
             'full ipv6' => array(
                 '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
-                '2001:0db8:85a3:0:0:0:0:0',
+                '2001:db8:85a3::',
             ),
             'shortened ipv6' => array(
                 '2001:db8:85a3:0:0:8a2e:370:7334',
-                '2001:db8:85a3:0:0:0:0:0',
+                '2001:db8:85a3::',
+            ),
+            'compressed ipv6' => array(
+                '2001:db8::1',
+                '2001:db8::',
             ),
             'loopback' => array(
+                '::1',
+                '::',
+            ),
+            'loopback long form' => array(
                 '0:0:0:0:0:0:0:1',
-                '0:0:0:0:0:0:0:0',
+                '::',
+            ),
+            'ipv4-mapped' => array(
+                '::ffff:192.168.1.42',
+                '::',
             ),
         );
     }

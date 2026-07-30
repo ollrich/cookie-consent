@@ -87,19 +87,28 @@
             var data = {
                 timestamp: new Date().toISOString(),
                 version: config.consentVersion || '1.0',
+                configHash: config.configHash || '',
                 services: serviceConsents
             };
             Cookie.set(data);
             this.data = data;
-
-            // Update Google Consent Mode v2 if available.
-            this.updateGCM(serviceConsents);
 
             // Always attempt to log – the server checks whether logging is enabled.
             // This avoids stale logEnabled values on cached pages.
             if (config.ajaxUrl) {
                 this.logConsent(data);
             }
+        },
+
+        /**
+         * True when consent was stored for a different service/cookie
+         * configuration than the current one – the banner should re-open.
+         * Cookies without a hash (pre-1.7) are not treated as stale to
+         * avoid re-prompting everyone on plugin update.
+         */
+        isStale: function () {
+            return !!(this.data && this.data.configHash && config.configHash &&
+                this.data.configHash !== config.configHash);
         },
 
         acceptAll: function () {
@@ -151,31 +160,23 @@
                 xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 xhr.send(payload);
             }
-        },
-
-        /**
-         * Update Google Consent Mode v2 based on current consent state.
-         */
-        updateGCM: function (serviceConsents) {
-            if (typeof gtag !== 'function') return;
-
-            // Check if any service has consent granted.
-            var hasAnyConsent = false;
-            for (var key in serviceConsents) {
-                if (serviceConsents[key]) {
-                    hasAnyConsent = true;
-                    break;
-                }
-            }
-
-            gtag('consent', 'update', {
-                'analytics_storage': hasAnyConsent ? 'granted' : 'denied',
-                'ad_storage': hasAnyConsent ? 'granted' : 'denied',
-                'ad_user_data': hasAnyConsent ? 'granted' : 'denied',
-                'ad_personalization': hasAnyConsent ? 'granted' : 'denied'
-            });
         }
+
+        // Note: no gtag('consent','update') here. The popup only covers embed
+        // services (audio/video), not analytics or ads – granting Google
+        // consent signals from embed consent would be wrong. The GCM defaults
+        // (all denied) from the server therefore stay in effect.
     };
+
+    /**
+     * Reload after a consent change so server-side blocked embeds
+     * get re-rendered. Can be disabled via sgccConfig.reloadOnConsent.
+     */
+    function maybeReload() {
+        if (config.reloadOnConsent !== false) {
+            window.location.reload();
+        }
+    }
 
     /* ======================================================================
        Banner Controller
@@ -188,7 +189,9 @@
             this.el = document.getElementById('sgcc-banner');
             if (!this.el) return;
             if (config.isPrivacyPage) return;
-            if (Cookie.exists()) return;
+            // Re-open the banner when the stored consent no longer matches
+            // the current service/cookie configuration.
+            if (Cookie.exists() && !Consent.isStale()) return;
 
             this.bindEvents();
             this.show();
@@ -217,7 +220,7 @@
                     Consent.acceptAll();
                     self.hide();
                     FloatingIcon.show();
-                    window.location.reload();
+                    maybeReload();
                 });
             }
 
@@ -363,7 +366,7 @@
                     self.hide();
                     Banner.hide();
                     FloatingIcon.show();
-                    window.location.reload();
+                    maybeReload();
                 });
             }
 
@@ -375,7 +378,7 @@
                     self.hide();
                     Banner.hide();
                     FloatingIcon.show();
-                    window.location.reload();
+                    maybeReload();
                 });
             }
 
@@ -641,9 +644,9 @@
                         }
                     } else {
                         // Non-Instagram blocked embed: restore original HTML.
-                        var cleanHtml = originalHtml.replace(/<script[^>]*><\/script>/gi, '');
+                        var restoredHtml = originalHtml.replace(/<script[^>]*><\/script>/gi, '');
                         var temp = document.createElement('div');
-                        temp.innerHTML = cleanHtml;
+                        temp.innerHTML = restoredHtml;
                         placeholder.parentNode.replaceChild(temp, placeholder);
                     }
                 }
@@ -672,7 +675,7 @@
                         Consent.save(consents);
                         Banner.hide();
                         FloatingIcon.show();
-                        window.location.reload();
+                        maybeReload();
                     } else {
                         // Load only this one embed (no consent saved).
                         self.loadEmbed(placeholder);

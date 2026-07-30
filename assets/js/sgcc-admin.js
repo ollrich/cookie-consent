@@ -104,6 +104,11 @@
 
         btn.addEventListener('click', function () {
             var url = admin.ajaxUrl + '?action=sgcc_export_log&nonce=' + encodeURIComponent(admin.exportNonce);
+            // Respect the currently visible date filter.
+            var from = document.querySelector('input[name="date_from"]');
+            var to = document.querySelector('input[name="date_to"]');
+            if (from && from.value) url += '&date_from=' + encodeURIComponent(from.value);
+            if (to && to.value) url += '&date_to=' + encodeURIComponent(to.value);
             window.location.href = url;
         });
     }

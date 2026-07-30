@@ -4,7 +4,7 @@ Tags: cookie consent, GDPR, DSGVO, embed blocking, privacy
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.6
+Stable tag: 1.7
 License: GPL-2.0+
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,23 @@ SchonGeil Cookie Consent is a lightweight, self-hosted WordPress plugin that blo
 3. Go to Settings > Cookie Consent to configure
 
 == Changelog ==
+
+= 1.7 =
+* Fix: IPv6-Anonymisierung maskiert jetzt auch komprimierte Adressen (z.B. 2001:db8::1) korrekt – binäres Maskieren der letzten 80 Bit via inet_pton
+* Fix: Config-Hash wird jetzt NACH dem Speichern der Optionen berechnet (updated_option statt update_option) und umfasst nur noch consent-relevante Einstellungen
+* Neu: Banner öffnet sich erneut, wenn sich die Service-/Cookie-Konfiguration seit der gespeicherten Einwilligung geändert hat (Config-Hash-Abgleich im Frontend)
+* Fix: Google Consent Mode v2 – Embed-Einwilligung setzt analytics/ad-Signale nicht mehr auf "granted"; die Defaults bleiben "denied" (das Plugin hat keine Analytics-/Ads-Kategorie)
+* Fix: Polylang-Übersetzungen der Service-Texte (Platzhalter) greifen jetzt tatsächlich
+* Fix: CSV-Export des Consent-Logs berücksichtigt den Datumsfilter
+* Fix: Backslashes bei Apostrophen in Cookie-/Service-Formularen (fehlendes wp_unslash)
+* Fix: Custom-Link im Banner – Sprach-Fallback gilt jetzt für URL und Text gemeinsam
+* Fix: Instagram-URL-Fallback erkennt auch /reel/- und /tv/-Links
+* Neu: Log-Aufräumen läuft täglich per WP-Cron statt nur beim Besuch der Einstellungsseite
+* Verbesserung: Fehlgeschlagene Thumbnail-Lookups werden 12 h gemerkt (kein wiederholtes Remote-Warten beim Seitenaufbau)
+* Verbesserung: Kein globaler Object-Cache-Flush mehr bei jedem Speichern; Hummingbird-Erkennung korrigiert
+* Verbesserung: Sprach-Helfer in gemeinsamen Trait zusammengeführt; tote Config-Keys aus dem Inline-Script entfernt (kleineres Markup)
+* Verbesserung: Hex-Farb-Validierung erlaubt nur noch gültige CSS-Längen (3/4/6/8)
+* Bereinigung: uninstall.php entfernt jetzt auch Thumbnail-Cache, Transients und Cron-Event; ungenutzte Option sgcc_categories entfernt
 
 = 1.6 =
 * Neu: PHPUnit-Test-Suite für kritische Regex-Patterns (Service-Erkennung, IP-Anonymisierung, Hex-Farb-Validierung, Embed-Blocking)

@@ -320,6 +320,28 @@ class SGCC_Services {
     }
 
     /**
+     * Check whether a thumbnail lookup failed recently.
+     *
+     * Failed remote lookups run inside the_content, so without this marker
+     * every page view would retry the remote request (with long timeouts).
+     *
+     * @param string $file_key Cache file key, e.g. 'yt-abc123'.
+     * @return bool
+     */
+    private static function thumbnail_failed_recently( $file_key ) {
+        return (bool) get_transient( 'sgcc_thumbfail_' . $file_key );
+    }
+
+    /**
+     * Remember a failed thumbnail lookup for 12 hours.
+     *
+     * @param string $file_key Cache file key, e.g. 'yt-abc123'.
+     */
+    private static function remember_thumbnail_failure( $file_key ) {
+        set_transient( 'sgcc_thumbfail_' . $file_key, 1, 12 * HOUR_IN_SECONDS );
+    }
+
+    /**
      * Download a remote image and store it in the thumbnail cache.
      *
      * @param string $remote_url URL to download.
@@ -374,11 +396,15 @@ class SGCC_Services {
         }
 
         $cache     = self::get_cache_paths();
-        $file_path = $cache['dir'] . '/yt-' . $video_id . '.jpg';
-        $file_url  = $cache['url'] . '/yt-' . $video_id . '.jpg';
+        $file_key  = 'yt-' . $video_id;
+        $file_path = $cache['dir'] . '/' . $file_key . '.jpg';
+        $file_url  = $cache['url'] . '/' . $file_key . '.jpg';
 
         if ( file_exists( $file_path ) ) {
             return $file_url;
+        }
+        if ( self::thumbnail_failed_recently( $file_key ) ) {
+            return false;
         }
 
         // Try hqdefault first, fall back to default.
@@ -390,6 +416,7 @@ class SGCC_Services {
             }
         }
 
+        self::remember_thumbnail_failure( $file_key );
         return false;
     }
 
@@ -411,13 +438,16 @@ class SGCC_Services {
         }
 
         // Create a stable filename from the track URL.
-        $hash      = md5( $track_url );
+        $file_key  = 'sc-' . md5( $track_url );
         $cache     = self::get_cache_paths();
-        $file_path = $cache['dir'] . '/sc-' . $hash . '.jpg';
-        $file_url  = $cache['url'] . '/sc-' . $hash . '.jpg';
+        $file_path = $cache['dir'] . '/' . $file_key . '.jpg';
+        $file_url  = $cache['url'] . '/' . $file_key . '.jpg';
 
         if ( file_exists( $file_path ) ) {
             return $file_url;
+        }
+        if ( self::thumbnail_failed_recently( $file_key ) ) {
+            return false;
         }
 
         // Query SoundCloud oEmbed API for the thumbnail URL.
@@ -428,11 +458,13 @@ class SGCC_Services {
         ) );
 
         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
         $data = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( empty( $data['thumbnail_url'] ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
@@ -443,6 +475,7 @@ class SGCC_Services {
             return $file_url;
         }
 
+        self::remember_thumbnail_failure( $file_key );
         return false;
     }
 
@@ -505,13 +538,16 @@ class SGCC_Services {
             return false;
         }
 
-        $hash      = md5( $show_url );
+        $file_key  = 'mc-' . md5( $show_url );
         $cache     = self::get_cache_paths();
-        $file_path = $cache['dir'] . '/mc-' . $hash . '.jpg';
-        $file_url  = $cache['url'] . '/mc-' . $hash . '.jpg';
+        $file_path = $cache['dir'] . '/' . $file_key . '.jpg';
+        $file_url  = $cache['url'] . '/' . $file_key . '.jpg';
 
         if ( file_exists( $file_path ) ) {
             return $file_url;
+        }
+        if ( self::thumbnail_failed_recently( $file_key ) ) {
+            return false;
         }
 
         // Query Mixcloud oEmbed API for the thumbnail URL.
@@ -532,11 +568,13 @@ class SGCC_Services {
         }
 
         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
         $data = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( empty( $data['image'] ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
@@ -544,6 +582,7 @@ class SGCC_Services {
             return $file_url;
         }
 
+        self::remember_thumbnail_failure( $file_key );
         return false;
     }
 
@@ -600,13 +639,16 @@ class SGCC_Services {
             return false;
         }
 
-        $hash      = md5( $track_url );
+        $file_key  = 'ht-' . md5( $track_url );
         $cache     = self::get_cache_paths();
-        $file_path = $cache['dir'] . '/ht-' . $hash . '.jpg';
-        $file_url  = $cache['url'] . '/ht-' . $hash . '.jpg';
+        $file_path = $cache['dir'] . '/' . $file_key . '.jpg';
+        $file_url  = $cache['url'] . '/' . $file_key . '.jpg';
 
         if ( file_exists( $file_path ) ) {
             return $file_url;
+        }
+        if ( self::thumbnail_failed_recently( $file_key ) ) {
+            return false;
         }
 
         // Query hearthis.at oEmbed API for the thumbnail URL.
@@ -617,11 +659,13 @@ class SGCC_Services {
         ) );
 
         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
         $data = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( empty( $data['thumbnail_url'] ) ) {
+            self::remember_thumbnail_failure( $file_key );
             return false;
         }
 
@@ -629,6 +673,7 @@ class SGCC_Services {
             return $file_url;
         }
 
+        self::remember_thumbnail_failure( $file_key );
         return false;
     }
 
@@ -684,12 +729,33 @@ class SGCC_Services {
             $current = pll_current_language( 'slug' );
             $lang    = ( 'en' === $current ) ? 'en' : 'de';
         }
-        if ( isset( $services[ $service_key ]['texts'][ $lang ] ) ) {
-            return $services[ $service_key ]['texts'][ $lang ];
+
+        $texts_de = $services[ $service_key ]['texts']['de'] ?? array();
+        $texts_en = $services[ $service_key ]['texts']['en'] ?? array();
+
+        if ( empty( $texts_de ) && empty( $texts_en ) ) {
+            return array( 'title' => $services[ $service_key ]['name'] ?? '', 'allow' => '', 'privacy' => '', 'load' => 'Inhalt laden', 'always' => '' );
         }
-        if ( isset( $services[ $service_key ]['texts']['de'] ) ) {
-            return $services[ $service_key ]['texts']['de'];
+
+        // With Polylang, the German default is the registered string
+        // (see SGCC_Polylang::register_strings). Untranslated strings
+        // fall back to the built-in English texts for 'en'.
+        if ( function_exists( 'pll__' ) && ! empty( $texts_de ) ) {
+            $result = array();
+            foreach ( $texts_de as $text_key => $de_value ) {
+                $translated = pll__( $de_value );
+                if ( $translated !== $de_value || 'de' === $lang ) {
+                    $result[ $text_key ] = $translated;
+                } else {
+                    $result[ $text_key ] = $texts_en[ $text_key ] ?? $de_value;
+                }
+            }
+            return $result;
         }
-        return array( 'title' => $services[ $service_key ]['name'] ?? '', 'allow' => '', 'privacy' => '', 'load' => 'Inhalt laden', 'always' => '' );
+
+        if ( 'en' === $lang && ! empty( $texts_en ) ) {
+            return $texts_en;
+        }
+        return ! empty( $texts_de ) ? $texts_de : $texts_en;
     }
 }

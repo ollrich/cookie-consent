@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SGCC_Blocker {
 
+    use SGCC_L10n;
+
     private static $instance = null;
 
     public static function get_instance() {
@@ -125,7 +127,7 @@ class SGCC_Blocker {
         $url = '';
         if ( preg_match( '/data-instgrm-permalink=["\']([^"\']+)["\']/i', $html, $url_match ) ) {
             $url = $url_match[1];
-        } elseif ( preg_match( '/href=["\']([^"\']*instagram\.com\/p\/[^"\']+)["\']/i', $html, $url_match ) ) {
+        } elseif ( preg_match( '/href=["\']([^"\']*instagram\.com\/(?:p|reel|tv)\/[^"\']+)["\']/i', $html, $url_match ) ) {
             $url = $url_match[1];
         }
 
@@ -344,52 +346,4 @@ class SGCC_Blocker {
         return null;
     }
 
-    private function get_privacy_page_url() {
-        $lang = $this->get_current_lang();
-
-        $page_id = absint( get_option( 'sgcc_privacy_page_id_' . $lang, 0 ) );
-
-        if ( ! $page_id ) {
-            // Fallback to other language.
-            $fallback_lang = ( 'en' === $lang ) ? 'de' : 'en';
-            $page_id = absint( get_option( 'sgcc_privacy_page_id_' . $fallback_lang, 0 ) );
-        }
-
-        if ( ! $page_id ) {
-            $page_id = absint( get_option( 'wp_page_for_privacy_policy', 0 ) );
-        }
-
-        if ( ! $page_id ) {
-            return false;
-        }
-
-        return get_permalink( $page_id );
-    }
-
-    private function get_text( $key, $default_de, $default_en ) {
-        $lang = $this->get_current_lang();
-
-        // Use Polylang string translation if available.
-        if ( function_exists( 'pll__' ) ) {
-            $translated = pll__( $default_de );
-            if ( $translated !== $default_de || 'de' === $lang ) {
-                return $translated;
-            }
-            return $default_en;
-        }
-
-        $custom_texts = get_option( 'sgcc_texts', array() );
-        if ( isset( $custom_texts[ $lang ][ $key ] ) && ! empty( $custom_texts[ $lang ][ $key ] ) ) {
-            return $custom_texts[ $lang ][ $key ];
-        }
-        return ( 'en' === $lang ) ? $default_en : $default_de;
-    }
-
-    private function get_current_lang() {
-        if ( function_exists( 'pll_current_language' ) ) {
-            $lang = pll_current_language( 'slug' );
-            return ( 'en' === $lang ) ? 'en' : 'de';
-        }
-        return 'de';
-    }
 }

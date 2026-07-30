@@ -3,8 +3,9 @@
  * Tests fuer Hex-Color-Validierung (SGCC_Core).
  *
  * Der Regex wird isoliert getestet, da SGCC_Core beim Instanziieren das
- * gesamte Plugin bootstrappt. Der Pattern stammt aus class-sgcc-core.php
- * Zeile 72: /^#[0-9a-fA-F]{3,8}$/
+ * gesamte Plugin bootstrappt. Der Pattern stammt aus
+ * SGCC_Core::inject_custom_colors() und erlaubt nur die gueltigen
+ * CSS-Hex-Laengen 3, 4, 6 und 8.
  *
  * @package SchonGeil_Cookie_Consent\Tests
  */
@@ -15,9 +16,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class Test_Core extends TestCase {
 
     /**
-     * Exakter Regex aus SGCC_Core::inject_custom_colors() Zeile 72.
+     * Exakter Regex aus SGCC_Core::inject_custom_colors().
      */
-    private const HEX_COLOR_PATTERN = '/^#[0-9a-fA-F]{3,8}$/';
+    private const HEX_COLOR_PATTERN = '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/';
 
     /* ==================================================================
        Gueltige Hex-Farben
@@ -34,7 +35,6 @@ class Test_Core extends TestCase {
             'mixed case'     => array( '#aAbBcC' ),
             'all zeros 3'    => array( '#000' ),
             'all zeros 6'    => array( '#000000' ),
-            '5-digit'        => array( '#12345' ),
         );
     }
 
@@ -52,6 +52,8 @@ class Test_Core extends TestCase {
             'no hash'         => array( '1a1a2e' ),
             'too short 1'     => array( '#f' ),
             'too short 2'     => array( '#ff' ),
+            '5-digit'         => array( '#12345' ),
+            '7-digit'         => array( '#1234567' ),
             'too long 9'      => array( '#fffffffff' ),
             'css injection'   => array( '#000;background:url(evil)' ),
             'expression'      => array( 'expression(alert(1))' ),

@@ -76,6 +76,7 @@ class SGCC_Polylang {
 
         // Floating icon.
         pll_register_string( 'sgcc_floating_label', 'Cookie-Einstellungen ändern', $group );
+        pll_register_string( 'sgcc_floating_tooltip', 'Klicke hier, um deine Cookie-Einstellungen für eingebettete Inhalte wie Videos und Musik-Player anzupassen.', $group );
 
         // Service-specific texts.
         $services = SGCC_Services::get_defaults();

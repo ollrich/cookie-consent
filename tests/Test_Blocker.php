@@ -124,6 +124,14 @@ class Test_Blocker extends TestCase {
         $this->assertStringContainsString( 'sgcc-blocked-embed', $output );
     }
 
+    public function test_instagram_reel_href_fallback_extracts_url(): void {
+        $input  = '<blockquote class="instagram-media"><a href="https://www.instagram.com/reel/XYZ789/">reel</a></blockquote>';
+        $output = $this->blocker->filter_content( $input );
+
+        $this->assertStringContainsString( 'sgcc-blocked-embed', $output );
+        $this->assertStringContainsString( 'data-sgcc-url="https://www.instagram.com/reel/XYZ789/"', $output );
+    }
+
     public function test_non_instagram_blockquote_not_blocked(): void {
         $input = '<blockquote class="twitter-tweet">some tweet</blockquote>';
         $output = $this->blocker->filter_content( $input );

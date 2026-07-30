@@ -30,7 +30,9 @@ class SGCC_Admin {
         add_action( 'wp_ajax_sgcc_save_cookies', array( $this, 'ajax_save_cookies' ) );
 
         // Flush page caches when any plugin option changes (covers options.php saves).
-        add_action( 'update_option', array( $this, 'maybe_flush_cache_on_option_update' ), 10, 1 );
+        // Must be 'updated_option' (fires AFTER the new value is written) so the
+        // config hash is computed from the new state, not the previous one.
+        add_action( 'updated_option', array( $this, 'maybe_flush_cache_on_option_update' ), 10, 1 );
     }
 
     public function add_menu_page() {
@@ -111,7 +113,6 @@ class SGCC_Admin {
         if ( get_option( 'sgcc_consent_log_enabled' ) ) {
             SGCC_Consent_Log::create_table();
         }
-        $this->maybe_cleanup_logs();
 
         $active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'general';
         $tabs = array(
@@ -220,11 +221,11 @@ class SGCC_Admin {
                 </tr>
                 <tr>
                     <th><?php esc_html_e( 'Bottom offset (px)', 'sgcc' ); ?></th>
-                    <td><input type="number" name="sgcc_floating_icon_bottom" value="<?php echo esc_attr( get_option( 'sgcc_floating_icon_bottom', 60 ) ); ?>" min="0" max="500" class="small-text" /> px</td>
+                    <td><input type="number" name="sgcc_floating_icon_bottom" value="<?php echo esc_attr( get_option( 'sgcc_floating_icon_bottom', 20 ) ); ?>" min="0" max="500" class="small-text" /> px</td>
                 </tr>
                 <tr>
                     <th><?php esc_html_e( 'Side offset (px)', 'sgcc' ); ?></th>
-                    <td><input type="number" name="sgcc_floating_icon_side" value="<?php echo esc_attr( get_option( 'sgcc_floating_icon_side', 60 ) ); ?>" min="0" max="500" class="small-text" /> px</td>
+                    <td><input type="number" name="sgcc_floating_icon_side" value="<?php echo esc_attr( get_option( 'sgcc_floating_icon_side', 20 ) ); ?>" min="0" max="500" class="small-text" /> px</td>
                 </tr>
                 <tr>
                     <th><?php esc_html_e( 'Icon background color', 'sgcc' ); ?></th>
@@ -249,7 +250,7 @@ class SGCC_Admin {
                     <th><?php esc_html_e( 'Enable GCM v2', 'sgcc' ); ?></th>
                     <td>
                         <label><input type="checkbox" name="sgcc_gcm_enabled" value="1" <?php checked( get_option( 'sgcc_gcm_enabled', 0 ) ); ?> /></label>
-                        <p class="description"><?php esc_html_e( 'Only if you use Google Analytics or Ads.', 'sgcc' ); ?></p>
+                        <p class="description"><?php esc_html_e( 'Outputs Google Consent Mode v2 defaults set to "denied". This plugin has no analytics/ads consent category, so the signals stay denied – Google tags will not store data.', 'sgcc' ); ?></p>
                     </td>
                 </tr>
             </table>
@@ -279,9 +280,9 @@ class SGCC_Admin {
         if ( isset( $_POST['sgcc_add_custom_service'] ) && check_admin_referer( 'sgcc_add_custom_service' ) ) {
             $custom = get_option( 'sgcc_custom_services', array() );
             $slug = sanitize_key( $_POST['custom_service_slug'] ?? '' );
-            $name = sanitize_text_field( $_POST['custom_service_name'] ?? '' );
+            $name = sanitize_text_field( wp_unslash( $_POST['custom_service_name'] ?? '' ) );
             $cat  = sanitize_key( $_POST['custom_service_category'] ?? 'video' );
-            $patterns_raw = sanitize_textarea_field( $_POST['custom_service_patterns'] ?? '' );
+            $patterns_raw = sanitize_textarea_field( wp_unslash( $_POST['custom_service_patterns'] ?? '' ) );
 
             if ( $slug && $name && $patterns_raw ) {
                 $patterns = array_filter( array_map( 'trim', explode( "\n", $patterns_raw ) ) );
@@ -318,9 +319,9 @@ class SGCC_Admin {
             $custom        = get_option( 'sgcc_custom_services', array() );
             $original_slug = sanitize_key( $_POST['sgcc_edit_original_slug'] ?? '' );
             $slug          = sanitize_key( $_POST['custom_service_slug'] ?? '' );
-            $name          = sanitize_text_field( $_POST['custom_service_name'] ?? '' );
+            $name          = sanitize_text_field( wp_unslash( $_POST['custom_service_name'] ?? '' ) );
             $cat           = sanitize_key( $_POST['custom_service_category'] ?? 'video' );
-            $patterns_raw  = sanitize_textarea_field( $_POST['custom_service_patterns'] ?? '' );
+            $patterns_raw  = sanitize_textarea_field( wp_unslash( $_POST['custom_service_patterns'] ?? '' ) );
 
             if ( $original_slug && $slug && $name && $patterns_raw && isset( $custom[ $original_slug ] ) ) {
                 $patterns = array_filter( array_map( 'trim', explode( "\n", $patterns_raw ) ) );
@@ -457,13 +458,13 @@ class SGCC_Admin {
 
         if ( isset( $_POST['sgcc_save_cookies_form'] ) && check_admin_referer( 'sgcc_save_cookies_form' ) ) {
             $new_cookies = array();
-            $names = $_POST['cookie_name'] ?? array();
-            $providers = $_POST['cookie_provider'] ?? array();
-            $categories = $_POST['cookie_category'] ?? array();
-            $desc_de = $_POST['cookie_desc_de'] ?? array();
-            $desc_en = $_POST['cookie_desc_en'] ?? array();
-            $durations = $_POST['cookie_duration'] ?? array();
-            $types = $_POST['cookie_type'] ?? array();
+            $names = wp_unslash( $_POST['cookie_name'] ?? array() );
+            $providers = wp_unslash( $_POST['cookie_provider'] ?? array() );
+            $categories = wp_unslash( $_POST['cookie_category'] ?? array() );
+            $desc_de = wp_unslash( $_POST['cookie_desc_de'] ?? array() );
+            $desc_en = wp_unslash( $_POST['cookie_desc_en'] ?? array() );
+            $durations = wp_unslash( $_POST['cookie_duration'] ?? array() );
+            $types = wp_unslash( $_POST['cookie_type'] ?? array() );
 
             for ( $i = 0; $i < count( $names ); $i++ ) {
                 $name = sanitize_text_field( $names[ $i ] ?? '' );
@@ -687,16 +688,6 @@ class SGCC_Admin {
         wp_send_json_success();
     }
 
-    private function maybe_cleanup_logs() {
-        if ( ! get_option( 'sgcc_consent_log_enabled', 0 ) ) return;
-        $last_cleanup = get_transient( 'sgcc_last_log_cleanup' );
-        if ( $last_cleanup ) return;
-        $retention = absint( get_option( 'sgcc_consent_log_retention', 12 ) );
-        $log = SGCC_Consent_Log::get_instance();
-        $log->delete_old( $retention );
-        set_transient( 'sgcc_last_log_cleanup', time(), DAY_IN_SECONDS );
-    }
-
     /* ==================================================================
        Cache Management
        ================================================================== */
@@ -726,9 +717,6 @@ class SGCC_Admin {
 
         // Update config hash so frontend can detect stale caches.
         self::update_config_hash();
-
-        // WordPress object cache.
-        wp_cache_flush();
 
         // WP Super Cache.
         if ( function_exists( 'wp_cache_clear_cache' ) ) {
@@ -765,7 +753,7 @@ class SGCC_Admin {
         }
 
         // Hummingbird.
-        if ( class_exists( '\Jeremypercy\Minification\Cache' ) || has_action( 'wphb_clear_page_cache' ) ) {
+        if ( has_action( 'wphb_clear_page_cache' ) ) {
             do_action( 'wphb_clear_page_cache' );
         }
 
@@ -789,22 +777,18 @@ class SGCC_Admin {
     }
 
     /**
-     * Store a hash of the current config so the frontend can detect stale caches.
+     * Store a hash of the consent-relevant config.
+     *
+     * The frontend re-opens the banner when a stored consent was given for a
+     * different hash. Only options that change WHAT the visitor consents to
+     * belong here – cosmetic options (colors, texts, positions) must not
+     * invalidate existing consents.
      */
     private static function update_config_hash() {
         $hash_data = array(
-            'version'     => SGCC_VERSION,
-            'services'    => get_option( 'sgcc_services', array() ),
-            'custom'      => get_option( 'sgcc_custom_services', array() ),
-            'cookies'     => get_option( 'sgcc_cookies', array() ),
-            'texts'       => get_option( 'sgcc_texts', array() ),
-            'colors'      => array(
-                get_option( 'sgcc_primary_color', '' ),
-                get_option( 'sgcc_button_bg_color', '' ),
-                get_option( 'sgcc_button_text_color', '' ),
-            ),
-            'floating'    => get_option( 'sgcc_floating_icon_enabled', 1 ),
-            'banner_pos'  => get_option( 'sgcc_banner_position', 'bottom' ),
+            'services' => get_option( 'sgcc_services', array() ),
+            'custom'   => get_option( 'sgcc_custom_services', array() ),
+            'cookies'  => get_option( 'sgcc_cookies', array() ),
         );
         update_option( 'sgcc_config_hash', md5( wp_json_encode( $hash_data ) ), true );
     }

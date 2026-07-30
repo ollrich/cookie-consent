@@ -69,7 +69,7 @@ class SGCC_Core {
             // Validate all color values are proper hex before output to prevent CSS injection.
             $colors = compact( 'primary', 'bg', 'btn_bg', 'btn_text', 'btn_border', 'btn_hover_bg', 'btn_hover_text', 'btn_hover_border', 'float_bg', 'float_text' );
             foreach ( $colors as $key => $val ) {
-                if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $val ) ) {
+                if ( ! preg_match( '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $val ) ) {
                     $colors[ $key ] = '#000000';
                 }
             }

@@ -12,7 +12,7 @@
 define( 'ABSPATH', '/tmp/wordpress/' );
 
 // Plugin-Konstanten.
-define( 'SGCC_VERSION', '1.6' );
+define( 'SGCC_VERSION', '1.7' );
 define( 'SGCC_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'SGCC_PLUGIN_URL', 'https://example.com/wp-content/plugins/schongeil-cookie-consent/' );
 define( 'SGCC_PLUGIN_BASENAME', 'schongeil-cookie-consent/schongeil-cookie-consent.php' );
@@ -79,9 +79,28 @@ function wp_parse_args( $args, $defaults = array() ) {
 function is_admin() { return false; }
 function home_url( $path = '' ) { return 'https://example.com' . $path; }
 function get_permalink( $post_id = 0 ) { return 'https://example.com/?p=' . $post_id; }
-function current_time( $type ) { return date( 'Y-m-d H:i:s' ); }
+function current_time( $type ) { return 'timestamp' === $type ? time() : date( 'Y-m-d H:i:s' ); }
 function wp_cache_flush() {}
 function load_plugin_textdomain( $domain, $deprecated, $path ) {}
+
+// Transients – In-Memory-Store fuer Tests.
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) define( 'HOUR_IN_SECONDS', 3600 );
+if ( ! defined( 'DAY_IN_SECONDS' ) ) define( 'DAY_IN_SECONDS', 86400 );
+$GLOBALS['sgcc_test_transients'] = array();
+
+function get_transient( $key ) {
+    return $GLOBALS['sgcc_test_transients'][ $key ] ?? false;
+}
+
+function set_transient( $key, $value, $expiration = 0 ) {
+    $GLOBALS['sgcc_test_transients'][ $key ] = $value;
+    return true;
+}
+
+function delete_transient( $key ) {
+    unset( $GLOBALS['sgcc_test_transients'][ $key ] );
+    return true;
+}
 
 function wp_upload_dir() {
     return array(
@@ -118,6 +137,7 @@ function wp_remote_retrieve_header( $response, $header ) { return ''; }
    Klassen laden
    =================================================================== */
 
+require_once SGCC_PLUGIN_DIR . 'includes/trait-sgcc-l10n.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-services.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-blocker.php';
 require_once SGCC_PLUGIN_DIR . 'includes/class-sgcc-consent-log.php';
