@@ -8,15 +8,16 @@ Ein schlankes, selbst-gehostetes WordPress-Cookie-Consent-Plugin, das Drittanbie
 
 - **Kein externer Server-Kontakt** – vollständig self-hosted, keine Abhängigkeiten zu externen Consent-Diensten
 - **Service-spezifische Platzhalter** mit Vorschaubildern (YouTube, SoundCloud, Mixcloud, hearthis.at) – gecacht ohne Third-Party-Request vor Consent
-- **Drei gleichwertige Buttons** – keine Dark Patterns (Ablehnen, Nur Notwendige, Alle akzeptieren, Einstellungen)
+- **Drei gleichwertige Buttons** – keine Dark Patterns (Alle akzeptieren, Nur Notwendige, Einstellungen)
 - **Granulare Zustimmung** – pro Service oder Kategorie (Notwendig / Audio / Video)
 - **Polylang-Integration** für mehrsprachige Websites (DE/EN) inkl. sprachspezifischer Datenschutzseiten
 - **Cache-kompatibel** – serverseitiges Blockieren + clientseitige Consent-Prüfung; automatischer Cache-Flush bei Einstellungsänderungen
-- **Minimaler Footprint** – JS < 15 KB, CSS < 5 KB (minifiziert), kein jQuery
+- **Consent-Invalidierung** – ändert sich die Service- oder Cookie-Konfiguration, wird der Banner erneut angezeigt (Abgleich über Config-Hash)
+- **Minimaler Footprint** – JS ~11 KB, CSS ~11 KB (minifiziert), kein jQuery
 - **Barrierefrei** – ARIA-Labels, Tastaturnavigation, Fokus-Management
-- **Optionales Consent-Logging** – anonymisierte IPs (IPv4-Kürzung / IPv6-Maskierung), CSV-Export
+- **Optionales Consent-Logging** – anonymisierte IPs (IPv4-Kürzung / IPv6-Maskierung), CSV-Export, tägliches Aufräumen per WP-Cron
 - **Eingebetteter Embed-Scanner** – findet alle Embeds auf der Seite
-- **Google Consent Mode v2** – optionale Integration via `gtag('consent','update')`
+- **Google Consent Mode v2** – optionale Ausgabe der GCM-Defaults (alle Signale `denied`)
 - **Shortcode `[sgcc_settings]`** – Cookie-Einstellungen-Link in beliebigen Inhalten platzierbar
 
 ## Unterstützte Services
@@ -66,7 +67,9 @@ ARVE ist **keine Pflichtabhängigkeit** – das Plugin funktioniert ohne ARVE vo
 
 ### Optional (Cache-Plugins, automatischer Flush bei Einstellungsänderungen)
 
-WP Super Cache, W3 Total Cache, WP Rocket, LiteSpeed Cache, Autoptimize, WP Fastest Cache, SG Optimizer, Kinsta
+WP Super Cache, W3 Total Cache, WP Rocket, LiteSpeed Cache (inkl. v4+), Autoptimize, WP Fastest Cache, Hummingbird, SG Optimizer, Kinsta, Comet Cache / ZenCache
+
+Zusätzlich wird die Action `sgcc_cache_flushed` ausgelöst – damit lassen sich weitere Caches anbinden.
 
 ### Theme-Abhängigkeiten
 
@@ -85,11 +88,13 @@ Das Admin-Interface bietet fünf Tabs:
 
 | Tab | Inhalt |
 |---|---|
-| **Allgemein** | Aktivierung, Cookie-Lebensdauer, Datenschutzseiten (DE/EN), Banner-Position, Floating Icon, GCM v2 |
-| **Services & Blocking** | Services aktivieren/deaktivieren, eigene Services mit URL-Mustern anlegen |
+| **Allgemein** | Aktivierung, Cookie-Lebensdauer, Datenschutzseiten (DE/EN), Banner-Position, Zusatz-Link (DE/EN), Floating Icon, Consent-Log (Aktivierung + Aufbewahrungsdauer), GCM v2 |
+| **Services & Blocking** | Services aktivieren/deaktivieren, eigene Services mit URL-Mustern anlegen, bearbeiten und löschen; Embed-Scanner |
 | **Cookies** | CRUD-Interface für individuelle Cookies mit Name, Anbieter, Kategorie, Beschreibung (DE/EN), Dauer, Typ |
-| **Texte & Design** | UI-Texte (Banner, Popup, Platzhalter) in DE/EN; Farbwähler für alle UI-Elemente |
-| **Consent-Log** | Anonymisierte Einwilligungen einsehen, als CSV exportieren, löschen |
+| **Texte & Design** | Banner-Texte (Titel, Beschreibung, drei Button-Labels) in DE/EN; Farbwähler für alle UI-Elemente |
+| **Consent-Log** | Anonymisierte Einwilligungen einsehen, nach Datum filtern, als CSV exportieren, löschen |
+
+Popup- und Platzhalter-Texte sind im Admin-UI nicht editierbar – sie kommen aus der Service-Registry und lassen sich mit Polylang über die String-Übersetzungen anpassen.
 
 ## Shortcode
 
@@ -100,10 +105,19 @@ Das Admin-Interface bietet fünf Tabs:
 
 Attribute: `text` (Link-Text), `class` (CSS-Klassen), `tag` (`a` oder `button`)
 
+## Google Consent Mode v2
+
+Ist GCM v2 aktiviert, gibt das Plugin im `<head>` die GCM-Defaults aus – `analytics_storage`, `ad_storage`, `ad_user_data` und `ad_personalization` stehen auf `denied`.
+
+**Diese Signale bleiben auf `denied`.** Der Consent-Dialog deckt ausschließlich Embed-Dienste ab (Audio/Video); eine Kategorie für Analytics oder Werbung existiert nicht. Eine Einwilligung in YouTube-Embeds ist keine Einwilligung in Google Analytics, deshalb wird daraus kein `granted` abgeleitet. Wer Analytics oder Ads einwilligungsbasiert steuern will, braucht eine eigene Consent-Kategorie – die ist derzeit nicht implementiert.
+
 ## Datenbankschema
 
 Optionen werden in `wp_options` gespeichert (Präfix: `sgcc_`).
-Optionales Consent-Log: eigene Tabelle `wp_sgcc_consent_log` (wird bei Deinstallation entfernt).
+Optionales Consent-Log: eigene Tabelle `wp_sgcc_consent_log`.
+Thumbnails werden unter `wp-content/uploads/sgcc-thumbnails/` zwischengespeichert.
+
+Bei der Deinstallation werden Optionen, die Log-Tabelle, der Thumbnail-Cache, alle `sgcc_`-Transients und das Cron-Event `sgcc_daily_log_cleanup` entfernt.
 
 ## Sicherheit
 
@@ -116,10 +130,33 @@ Optionales Consent-Log: eigene Tabelle `wp_sgcc_consent_log` (wird bei Deinstall
 
 ## Entwicklung
 
+Build-Tools installieren:
+
 ```bash
 npm install
-npm run build   # minifiziert JS und CSS
 ```
+
+Es gibt kein `build`-Script – die Minifizierung wird direkt aufgerufen. JavaScript mit `terser`:
+
+```bash
+npx terser assets/js/sgcc-frontend.js --compress --mangle -o assets/js/sgcc-frontend.min.js
+```
+
+```bash
+npx terser assets/js/sgcc-admin.js --compress --mangle -o assets/js/sgcc-admin.min.js
+```
+
+CSS mit `clean-css-cli`:
+
+```bash
+npx cleancss -o assets/css/sgcc-frontend.min.css assets/css/sgcc-frontend.css
+```
+
+```bash
+npx cleancss -o assets/css/sgcc-admin.min.css assets/css/sgcc-admin.css
+```
+
+Die `.min`-Dateien sind eingecheckt und müssen nach jeder Änderung an den Quelldateien neu erzeugt werden – das Frontend lädt sie, sofern `SCRIPT_DEBUG` nicht gesetzt ist.
 
 **Anforderungen für Build:** Node.js mit `terser` und `clean-css-cli` (siehe `package.json`).
 
@@ -133,6 +170,23 @@ composer test   # oder: vendor/bin/phpunit
 **Anforderungen:** PHP ≥ 8.0, Composer. Tests laufen ohne WordPress-Installation (minimale WP-Stubs im Bootstrap).
 
 ## Changelog
+
+### 1.7
+- Fix: IPv6-Anonymisierung maskiert jetzt auch komprimierte Adressen (z. B. `2001:db8::1`) korrekt – binäres Maskieren der letzten 80 Bit via `inet_pton`
+- Fix: Config-Hash wird nach dem Speichern berechnet (`updated_option` statt `update_option`) und umfasst nur noch consent-relevante Optionen
+- Neu: Banner öffnet sich erneut, wenn sich die Service-/Cookie-Konfiguration seit der gespeicherten Einwilligung geändert hat
+- Fix: Google Consent Mode v2 – Embed-Einwilligung setzt `analytics`/`ad`-Signale nicht mehr auf `granted`; die Defaults bleiben `denied`
+- Fix: Polylang-Übersetzungen der Service-Texte (Platzhalter) greifen jetzt tatsächlich
+- Fix: CSV-Export des Consent-Logs berücksichtigt den Datumsfilter
+- Fix: Backslashes bei Apostrophen in Cookie- und Service-Formularen (fehlendes `wp_unslash`)
+- Fix: Custom-Link im Banner – Sprach-Fallback gilt für URL und Text gemeinsam
+- Fix: Instagram-URL-Fallback erkennt auch `/reel/`- und `/tv/`-Links
+- Neu: Log-Aufräumen läuft täglich per WP-Cron statt nur beim Besuch der Einstellungsseite
+- Verbesserung: Fehlgeschlagene Thumbnail-Lookups werden 12 h gemerkt (kein wiederholtes Remote-Warten beim Seitenaufbau)
+- Verbesserung: Kein globaler Object-Cache-Flush mehr bei jedem Speichern; Hummingbird-Erkennung korrigiert
+- Verbesserung: Sprach-Helfer im Trait `SGCC_L10n` zusammengeführt; tote Config-Keys aus dem Inline-Script entfernt
+- Verbesserung: Hex-Farb-Validierung erlaubt nur noch gültige CSS-Längen (3/4/6/8)
+- Bereinigung: `uninstall.php` entfernt jetzt auch Thumbnail-Cache, Transients und Cron-Event; ungenutzte Option `sgcc_categories` entfernt
 
 ### 1.6
 - Neu: PHPUnit-Test-Suite für kritische Regex-Patterns (Service-Erkennung, IP-Anonymisierung, Hex-Farb-Validierung, Embed-Blocking)

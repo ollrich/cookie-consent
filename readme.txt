@@ -18,14 +18,14 @@ SchonGeil Cookie Consent is a lightweight, self-hosted WordPress plugin that blo
 
 * No external server connections – fully self-hosted
 * Service-specific placeholders with preview images (YouTube, SoundCloud, Mixcloud, hearthis.at)
-* Three equal buttons – no dark patterns
+* Three equal buttons – no dark patterns (Accept all, Necessary only, Settings)
 * Polylang integration for multilingual sites (DE/EN)
 * Cache-compatible: server-side blocking + client-side consent
-* Minimal footprint: JS < 15 KB, CSS < 5 KB
+* Minimal footprint: JS ~11 KB, CSS ~11 KB (minified), no jQuery
 * Accessible: ARIA labels, keyboard navigation, focus management
 * Optional consent logging with anonymized IPs
 * Built-in embed scanner to find all embeds across your site
-* Google Consent Mode v2 support (optional)
+* Google Consent Mode v2 defaults (optional) – all signals stay "denied"; the dialog covers embed services only, not analytics or ads
 
 == Installation ==
 
